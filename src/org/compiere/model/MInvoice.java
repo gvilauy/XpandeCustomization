@@ -951,7 +951,7 @@ public class MInvoice extends X_C_Invoice implements DocAction
 	protected boolean beforeDelete ()
 	{
 
-		// Xpande. Gabriel Vila. 28/07/2017. Issue
+		// Xpande. Gabriel Vila. 28/07/2017. Issue #1
 		// Permito borrar invoices en Borrador sin importar que tenga orden asociada.
 		// Comento codigo original.
 
