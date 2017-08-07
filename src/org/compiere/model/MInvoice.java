@@ -21,6 +21,7 @@ import org.adempiere.exceptions.BPartnerNoAddressException;
 import org.adempiere.exceptions.DBException;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
+import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
 import org.compiere.util.*;
 import org.eevolution.model.MPPProductBOM;
@@ -49,20 +50,63 @@ import java.util.logging.Level;
  *  @author Jorg Janke
  *  @version $Id: MInvoice.java,v 1.2 2006/07/30 00:51:02 jjanke Exp $
  *  @author victor.perez@e-evolution.com, e-Evolution http://www.e-evolution.com
- *  		@see http://sourceforge.net/tracker/?func=detail&atid=879335&aid=1948157&group_id=176962
+ *  		@see ://sourceforge.net/tracker/?func=detail&atid=879335&aid=1948157&group_id=176962
  * 			<li> FR [ 2520591 ] Support multiples calendar for Org
- *			@see http://sourceforge.net/tracker2/?func=detail&atid=879335&aid=2520591&group_id=176962
- *  Modifications: Added RMA functionality (Ashley Ramdass)
+ *			@see ://sourceforge.net/tracker2/?func=detail&atid=879335&aid=2520591&group_id=176962
+ *  Modifications Added RMA functionality (Ashley Ramdass)
  *  @author Yamel Senih, ysenih@erpcya.com, ERPCyA http://www.erpcya.com
  *			<a href="https://github.com/adempiere/adempiere/issues/887">
- * 			@see FR [ 887 ] System Config reversal invoice DocNo</a>
+ * 			@see  [ 887 ] System Config reversal invoice DocNo</a>
  */
-public class MInvoice extends X_C_Invoice implements DocAction
-{
+public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
+
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 816227083897031327L;
+
+	/***
+	 * Actiones de documentos customizadas.
+	 * Xpande. Created by Gabriel Vila on 8/3/17. Issue #4.
+	 * @param docStatus
+	 * @param processing
+	 * @param orderType
+	 * @param isSOTrx
+	 * @param AD_Table_ID
+	 * @param docAction
+	 * @param options
+	 * @param index
+	 * @return
+	 */
+	@Override
+	public int customizeValidActions(String docStatus, Object processing, String orderType, String isSOTrx, int AD_Table_ID, String[] docAction, String[] options, int index) {
+
+		int newIndex = 0;
+
+		if ((docStatus.equalsIgnoreCase(STATUS_Drafted))
+				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
+				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
+
+			options[newIndex++] = DocumentEngine.ACTION_Prepare;
+			options[newIndex++] = DocumentEngine.ACTION_Complete;
+
+		}
+		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
+
+			// En invoices, solo permito reactivar comprobantes de compra.
+			if (isSOTrx.equalsIgnoreCase("N")){
+				options[newIndex++] = DocumentEngine.ACTION_ReActivate;
+			}
+
+			// No tiene sentido anular en comprobantes de compra, porque se puede hacer lo mismo reactivandolo y eliminandolo.
+			// No es posible anular comprobantes de venta, debido a CFE.
+			//options[newIndex++] = DocumentEngine.ACTION_Void;
+		}
+
+		return newIndex;
+	} // Xpande.
+
+
 
 	/**
 	 * 	Get Payments Of BPartner
@@ -83,7 +127,6 @@ public class MInvoice extends X_C_Invoice implements DocAction
 	 * 	Create new Invoice by copying
 	 * 	@param from invoice
 	 * 	@param dateDoc date of the document date
-	 *  @param acctDate original account date 
 	 * 	@param C_DocTypeTarget_ID target doc type
 	 * 	@param isSOTrx sales order
 	 * 	@param counter create counter links
@@ -950,7 +993,6 @@ public class MInvoice extends X_C_Invoice implements DocAction
 	 */
 	protected boolean beforeDelete ()
 	{
-
 		// Xpande. Gabriel Vila. 28/07/2017. Issue #1
 		// Permito borrar invoices en Borrador sin importar que tenga orden asociada.
 		// Comento codigo original.
@@ -964,7 +1006,6 @@ public class MInvoice extends X_C_Invoice implements DocAction
 		*/
 
 		// Fin Xpande.
-
 
 		return true;
 	}	//	beforeDelete
@@ -1620,7 +1661,7 @@ public class MInvoice extends X_C_Invoice implements DocAction
   		//	Create Cash
 		if (PAYMENTRULE_Cash.equals(getPaymentRule()) && !fromPOS )
 		{
-			if (MSysConfig.getBooleanValue("CASH_AS_PAYMENT", true , getAD_Client_ID()))
+			if (MSysConfig.getBooleanValue("CASH_AS_PAYMENT", true, getAD_Client_ID()))
 			{
 				String error = payCashWithCashAsPayment();
 				if (error != "")
@@ -2060,13 +2101,24 @@ public class MInvoice extends X_C_Invoice implements DocAction
 		}
 		else
 		{
+			// Xpande. Gabriel Vila. 03/08/2017. Issue #3.
+			// No se ejecutaran reversiones de invoices.
+			// Comento código.
+
 			return reverseCorrectIt();
+
+			// Xpande.
 		}
 
 		// After Void
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_VOID);
 		if (m_processMsg != null)
 			return false;
+
+		// Xpande. Gabriel Vila. 03/08/2017. Issue #3.
+		// Me aseguro docstatus VOID
+		//setDocStatus(DOCSTATUS_Voided);
+		// Xpande.
 
 		setProcessed(true);
 		setDocAction(DOCACTION_None);
@@ -2281,7 +2333,18 @@ public class MInvoice extends X_C_Invoice implements DocAction
 			return false;
 
 
-		return false;
+		// Xpande. Gabriel Vila. 03/08/2017. Issue #2.
+		// Me aseguro estados de documento al reactivar
+		this.setProcessed(false);
+		this.setPosted(false);
+		this.setDocStatus(DOCSTATUS_InProgress);
+		this.setDocAction(DOCACTION_Complete);
+
+		// Comento retorno en false y por defecto que retorne true.
+		// return false;
+		return true;
+		// Xpande
+
 	}	//	reActivateIt
 
 
@@ -2379,12 +2442,19 @@ public class MInvoice extends X_C_Invoice implements DocAction
 			|| DOCSTATUS_Reversed.equals(ds);
 	}	//	isComplete
 	
-	private String payCashWithCashAsPayment()
-	{
-
-		MDocType dt = (MDocType)getC_Order().getC_DocType();
+	/**
+	 * Pay it with cash
+	 * @return
+	 */
+	private String payCashWithCashAsPayment() {
+		int posId = Env.getContextAsInt(getCtx(),Env.POS_ID);
+		if(posId == 0) {
+			return "@C_POS_ID@ @NotFound@";
+		}
+		//	
+		MPOS pos = MPOS.get(getCtx(), posId);
 		MPayment paymentCash = new MPayment(getCtx(), 0 ,  get_TrxName());
-		paymentCash.setC_BankAccount_ID(dt.get_ValueAsInt("C_BankAccount_ID"));
+		paymentCash.setC_BankAccount_ID(pos.getC_BankAccount_ID());
 		paymentCash.setC_DocType_ID(true);
         String value = DB.getDocumentNo(paymentCash.getC_DocType_ID(),get_TrxName(), false,  paymentCash);
         paymentCash.setDocumentNo(value);
@@ -2398,7 +2468,7 @@ public class MInvoice extends X_C_Invoice implements DocAction
         paymentCash.setOverUnderAmt(Env.ZERO);
         paymentCash.setC_Invoice_ID(getC_Invoice_ID());
 		paymentCash.saveEx();
-		if (!paymentCash.processIt("CO"))
+		if (!paymentCash.processIt(X_C_Payment.DOCACTION_Complete))
 			return DOCSTATUS_Invalid;
 		paymentCash.saveEx();
 		MBankStatement.addPayment(paymentCash);
