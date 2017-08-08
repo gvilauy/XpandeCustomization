@@ -2101,24 +2101,13 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		}
 		else
 		{
-			// Xpande. Gabriel Vila. 03/08/2017. Issue #3.
-			// No se ejecutaran reversiones de invoices.
-			// Comento código.
-
 			return reverseCorrectIt();
-
-			// Xpande.
 		}
 
 		// After Void
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_VOID);
 		if (m_processMsg != null)
 			return false;
-
-		// Xpande. Gabriel Vila. 03/08/2017. Issue #3.
-		// Me aseguro docstatus VOID
-		//setDocStatus(DOCSTATUS_Voided);
-		// Xpande.
 
 		setProcessed(true);
 		setDocAction(DOCACTION_None);
