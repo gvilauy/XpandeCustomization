@@ -16,9 +16,16 @@
  *****************************************************************************/
 package org.compiere.model;
 
+import dto.sisteco.SistecoConvertResponse;
+import dto.sisteco.SistecoResponseDTO;
+import dto.uy.gub.dgi.cfe.*;
 import org.adempiere.exceptions.AdempiereException;
 import org.adempiere.exceptions.BPartnerNoAddressException;
 import org.adempiere.exceptions.DBException;
+import org.apache.axis.client.Call;
+import org.apache.axis.client.Service;
+import org.apache.axis.encoding.XMLType;
+import org.compiere.acct.Doc;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
 import org.compiere.process.DocOptions;
@@ -26,17 +33,25 @@ import org.compiere.process.DocumentEngine;
 import org.compiere.util.*;
 import org.eevolution.model.MPPProductBOM;
 import org.eevolution.model.MPPProductBOMLine;
+import org.xpande.cfe.model.MZCFERespuestaProvider;
 
-import java.io.File;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Marshaller;
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeConstants;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.XMLGregorianCalendar;
+import javax.xml.namespace.QName;
+import javax.xml.rpc.ParameterMode;
+import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
@@ -59,6 +74,10 @@ import java.util.logging.Level;
  * 			@see  [ 887 ] System Config reversal invoice DocNo</a>
  */
 public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
+
+	// Xpande. Momentaneo para CFE
+	private BigDecimal montoC124 = Env.ZERO;
+	// Xpande.
 
 	/**
 	 * 
@@ -1928,9 +1947,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (counter != null)
 			info.append(" - @CounterDoc@: @C_Invoice_ID@=").append(counter.getDocumentNo());
 
+		// Cfe
+		if (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)){
+			this.cfe();
+		}
+
 		m_processMsg = info.toString().trim();
 		setProcessed(true);
-		setDocAction(DOCACTION_Close);
+		setDocAction(DOCACTION_None);
 		return DocAction.STATUS_Completed;
 	}	//	completeIt
 
@@ -2464,6 +2488,875 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		return "";
 	}
 
+
+
+	// Xpande. CFE
+	private void cfe(){
+		try{
+
+
+
+			CFEEmpresasType objECfe = new CFEEmpresasType();
+			CFEDefType objCfe = new CFEDefType();
+			objECfe.setCFE(objCfe);
+
+			//objCfe.setEFact(new CFEDefType.EFact());
+
+			String cfeType = "141";
+
+			loadEncabezado_eTicket_eFactura(cfeType, objCfe);
+			loadDetalleProductosOServicios_eTicket_eFactura(cfeType, objCfe);
+			//loadInformacionDeDescuentosORecargos_eTicket_eFactura(cfeType, objCfe);
+
+			//loadInfoReferencia_eTicket_eFactura(cfeType, objCfe);
+
+			//loadComplementoFiscal(cfeType, objCfe);
+			loadCAE(objECfe);
+
+			//loadTimestamp(cfeType, objCfe);
+			objCfe.getEFact().setTmstFirma(Timestamp_to_XmlGregorianCalendar_OnlyDate(this.getDateInvoiced(), true));
+
+			objECfe.setAdenda(this.getDescription());
+
+			// Sigo
+			if (objCfe.getEResg().getEncabezado() != null) {
+				objCfe.getEResg().getEncabezado().setEmisor(null);
+			}
+			objCfe.getEResg().setTmstFirma(null);
+
+			// Sigooo
+			this.SendCfe(objCfe);
+
+
+
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+	}
+
+
+	private void loadEncabezado_eTicket_eFactura(String cfeType, CFEDefType objCfe) {
+
+		String sql = "";
+		ResultSet rs = null;
+		PreparedStatement pstmt = null;
+
+		CFEDefType.ETck eTicket = new CFEDefType.ETck();
+		CFEDefType.EFact eFactura = new CFEDefType.EFact();
+		CFEDefType.ETck.Encabezado eTicketEncabezado = new CFEDefType.ETck.Encabezado();
+		CFEDefType.EFact.Encabezado eFactEncabezado = new CFEDefType.EFact.Encabezado();
+		IdDocTck idDocTck = new IdDocTck();
+		IdDocFact idDocFact = new IdDocFact();
+		Emisor emisor = new Emisor();
+		ReceptorTck receptorTck = new ReceptorTck();
+		ReceptorFact receptorFact = new ReceptorFact();
+		Totales totales = new Totales();
+
+		/*
+		if (cfeType == CfeType.eTicket || cfeType == CfeType.eTicket_ND || cfeType == CfeType.eTicket_NC
+				|| cfeType == CfeType.eTicket_VxCA || cfeType == CfeType.eTicket_ND_VxCA || cfeType == CfeType.eTicket_NC_VxCA){
+			objCfe.setETck(eTicket);
+			eTicket.setEncabezado(eTicketEncabezado);
+			eTicketEncabezado.setIdDoc(idDocTck);
+			eTicketEncabezado.setEmisor(emisor);
+			eTicketEncabezado.setReceptor(receptorTck);
+			eTicketEncabezado.setTotales(totales);
+		} else if (cfeType == CfeType.eFactura || cfeType == CfeType.eFactura_ND || cfeType == CfeType.eFactura_NC
+				|| cfeType == CfeType.eFactura_VxCA || cfeType == CfeType.eFactura_ND_VxCA || cfeType == CfeType.eFactura_NC_VxCA){
+			objCfe.setEFact(eFactura);
+			eFactura.setEncabezado(eFactEncabezado);
+			eFactEncabezado.setIdDoc(idDocFact);
+			eFactEncabezado.setEmisor(emisor);
+			eFactEncabezado.setReceptor(receptorFact);
+			eFactEncabezado.setTotales(totales);
+		}
+		*/
+		objCfe.setEFact(eFactura);
+		eFactura.setEncabezado(eFactEncabezado);
+		eFactEncabezado.setIdDoc(idDocFact);
+		eFactEncabezado.setEmisor(emisor);
+		eFactEncabezado.setReceptor(receptorFact);
+		eFactEncabezado.setTotales(totales);
+
+		objCfe.setVersion("1.0");
+
+		//  AREA: Identificacion del Comprobante
+
+		MDocType doc = MDocType.get(getCtx(), this.getC_DocTypeTarget_ID());
+		//BigInteger doctype = new BigInteger(doc.get_Value("CfeType").toString());
+		BigInteger doctype = new BigInteger("141");
+		/* 2   */ idDocTck.setTipoCFE(doctype);
+		/* 2   */ idDocFact.setTipoCFE(doctype);
+
+		MSequence sec = new MSequence(getCtx(), doc.getDefiniteSequence_ID(), get_TrxName());
+		if(sec.getPrefix() != null){
+			/* 3   */ idDocTck.setSerie(sec.getPrefix());
+			/* 3   */ idDocFact.setSerie(sec.getPrefix());
+		} else {
+			throw new AdempiereException("CFEMessages.IDDOC_003");
+		}
+
+		if(this.getDocumentNo() != null){ // Se obtiene nro de cae directamente del documentNo
+			// Se quita serie del n�mero para enviar
+			String documentNo = this.getDocumentNo();
+			documentNo = documentNo.replaceAll("[^0-9]", ""); // Expresi�n regular para quitar todo lo que no es n�mero
+
+			String docno = org.apache.commons.lang.StringUtils.leftPad(String.valueOf(documentNo), 7, "0");
+			BigInteger numero = new BigInteger(docno);
+			/* 4   */ idDocTck.setNro(numero);// N�mero de CFE 7 digitos
+			/* 4   */ idDocFact.setNro(numero);
+		}
+		else throw new AdempiereException("CFEMessages.IDDOC_004");
+
+		if (this.getDateInvoiced() != null){
+			/* 5   */ idDocTck.setFchEmis(Timestamp_to_XmlGregorianCalendar_OnlyDate(this.getDateInvoiced(), false));
+			/* 5   */ idDocFact.setFchEmis(Timestamp_to_XmlGregorianCalendar_OnlyDate(this.getDateInvoiced(), false));
+
+		} else {
+			throw new AdempiereException("CFEMessages.IDDOC_005");
+		}
+		/* 6    - No Corresponde */
+		/* 7   - Tipo de obligatoriedad 3 (dato opcional)*/ //idDocTck.setPeriodoDesde(null);
+		/* 7   - Tipo de obligatoriedad 3 (dato opcional)*/ //idDocFact.setPeriodoDesde(null);
+		/* 8   - Tipo de obligatoriedad 3 (dato opcional)*/ //idDocTck.setPeriodoHasta(null);
+		/* 8   - Tipo de obligatoriedad 3 (dato opcional)*/ //idDocFact.setPeriodoHasta(null);
+
+
+		/*
+		 *  OpenUp Ltda. - #5821 - Raul Capecce
+		 *  Si la lista de precios tiene los impuestos incluidos,
+		 *	se indica en el cfe que las lineas van con los montos brutos en vez de netos
+		 */
+		/*
+		 *  OpenUp Ltda. - #7550 - Raul Capecce - 18/10/2016
+		 *  Se determina que el CFE se va a mandar con los impuestos incluidos a nivel de montos de la linea
+		 *  A nivel de linea se va a calcular para que los totales sean con impuestos incluidos
+		 */
+		/*
+		 *  OpenUp Ltda. - #7610 - Raul Capecce - 25/10/2016
+		 *  Nicolas Lopez y Gabriel Vila indican que se deben mandar los totales como aparecen en Adempiere
+		 *  En el caso que corresponda con o sin impuestos incluidos
+		 */
+		MPriceList priceList = (MPriceList) this.getM_PriceList();
+		if (priceList != null && priceList.get_ValueAsBoolean("isTaxIncluded")) {
+			/* 10  */ idDocTck.setMntBruto(new BigInteger("1"));
+			/* 10  */ idDocFact.setMntBruto(new BigInteger("1"));
+		} else {
+			/* 10  */ idDocTck.setMntBruto(new BigInteger("0"));
+			/* 10  */ idDocFact.setMntBruto(new BigInteger("0"));
+		}
+//		/* 10  */ idDocTck.setMntBruto(new BigInteger("1"));
+//		/* 10  */ idDocFact.setMntBruto(new BigInteger("1"));
+		/*  OpenUp Ltda. - #7610 - Fin */
+		/*  OpenUp Ltda. - #7550 - Fin */
+		/*  OpenUp Ltda. - #5821 - Fin */
+
+		//
+		//if(mInvoice.getpaymentruletype().equalsIgnoreCase("CO")){
+			/* 11  */ idDocTck.setFmaPago(BigInteger.valueOf(1));
+			/* 11  */ idDocFact.setFmaPago(BigInteger.valueOf(1));
+		//} else if(mInvoice.getpaymentruletype().equalsIgnoreCase("CR")){
+			/* 11  */ idDocTck.setFmaPago(BigInteger.valueOf(2));
+			/* 11  */ idDocFact.setFmaPago(BigInteger.valueOf(2));
+		//} else {
+		//	throw new AdempiereException(CFEMessages.IDDOC_011);
+		//}
+
+
+		/* 11  */ idDocTck.setFmaPago(BigInteger.valueOf(2));
+		/* 11  */ idDocFact.setFmaPago(BigInteger.valueOf(2));
+
+
+		//if (mInvoice.getDueDate() != null) {
+		//	/* 12  */ idDocTck.setFchVenc(CfeUtils.Timestamp_to_XmlGregorianCalendar_OnlyDate(mInvoice.getDueDate(), false));
+		//	/* 12  */ idDocFact.setFchVenc(CfeUtils.Timestamp_to_XmlGregorianCalendar_OnlyDate(mInvoice.getDueDate(), false));
+		//}
+
+
+		/* 13   - No Corresponde */
+		/* 14   - No Corresponde */
+		/* 15   - No Corresponde */
+
+
+		//  AREA: Emisor
+
+		//MOrgInfo orgInfo = MOrgInfo.get(ctx, mInvoice.getAD_Org_ID(), trxName);
+		//if (orgInfo == null) throw new AdempiereException(CFEMessages.EMISOR_ORG);
+
+		//if (orgInfo.getDUNS() == null) throw new AdempiereException(CFEMessages.EMISOR_040);
+		/* 40  */ emisor.setRUCEmisor("212334750012");
+
+		//if (orgInfo.getrznsoc() == null) throw new AdempiereException(CFEMessages.EMISOR_041);
+		/* 41  */ emisor.setRznSoc("212334750012");
+		//MOrg mOrg = MOrg.get(ctx, orgInfo.getAD_Org_ID());
+
+		// OpenUp Ltda. - #6853 - Raul Capecce - 19/09/2016
+		// Campo no obligatorio, seg�n petici�n, no se env�a en el xml
+		// if (mOrg != null && mOrg.getName() != null) {
+		// 	/* 42  */ emisor.setNomComercial(MOrg.get(ctx, orgInfo.getAD_Org_ID()).getName());
+		// }
+		// FIN - #6853
+
+
+		///* 43  */ emisor.setGiroEmis(orgInfo.getgirotype());
+		//emisor.setNomComercial("Supermercado Covadonga S.A.");
+		//emisor.setEmiSucursal("Covadonga");
+
+		// OpenUp Ltda. - #6853 - Ra�l Capeccce - Dato requerido por el cliente
+		//if (orgInfo.getPhone() != null) {
+			///* 44  */ emisor.getTelefono().add(orgInfo.getPhone());
+//		}
+		// FIN - #6853
+
+		///* 45  */ emisor.setCorreoEmisor(orgInfo.getEMail());
+//		MWarehouse casa = MWarehouse.get(ctx, orgInfo.getDropShip_Warehouse_ID());
+//		/* 46  */ emisor.setEmiSucursal(casa.getName());
+		try {
+			/* 47  */ emisor.setCdgDGISucur(BigInteger.valueOf(1));
+		}catch(Exception ex){
+			throw new AdempiereException("CFEMessages.EMISOR_047");
+		}
+
+
+		//MLocation mLocation = (MLocation) orgInfo.getC_Location();
+		//if (mLocation == null || mLocation.getAddress1() == null) throw new AdempiereException(CFEMessages.EMISOR_048);
+		/* 48  */ emisor.setDomFiscal("Progreso");
+		//MLocalidades mLocalidades = (MLocalidades) mLocation.getUY_Localidades();
+		//if (mLocalidades == null || mLocalidades.getName() == null) throw new AdempiereException(CFEMessages.EMISOR_049);
+		/* 49  */ emisor.setCiudad("PROGRESO");
+		//MDepartamentos mDepartamentos = (MDepartamentos) mLocation.getUY_Departamentos();
+		//if (mDepartamentos == null || mDepartamentos.getName() == null) throw new AdempiereException(CFEMessages.EMISOR_050);
+		/* 50  */ emisor.setDepartamento("CANELONES");
+
+
+		//  Area: Receptor
+
+		MBPartner partner =  MBPartner.get(getCtx(), this.getC_BPartner_ID());
+		MBPartnerLocation partnerLocation = new MBPartnerLocation(getCtx(), this.getC_BPartner_Location_ID(), get_TrxName());
+
+		// OpenUp Ltda - #5627 - Raul Capecce - Si es una factura (o NC o ND) es obligatorio que tenga RUT
+		/*
+		if (
+				cfeType.equals(CfeType.eFactura)
+						|| cfeType.equals(CfeType.eFactura_NC)
+						|| cfeType.equals(CfeType.eFactura_ND)
+						|| cfeType.equals(CfeType.eFactura_VxCA)
+						|| cfeType.equals(CfeType.eFactura_NC_VxCA)
+						|| cfeType.equals(CfeType.eFactura_ND_VxCA)
+				) {
+			if (
+					(partner.getDUNS() == null || partner.getDUNS().equalsIgnoreCase(""))
+							|| (!partner.getDocumentType().equalsIgnoreCase(MBPartner.DOCUMENTTYPE_RUT))
+					) {
+				throw new AdempiereException(CFEMessages.RECEPTOR_FACTNORUT);
+			}
+		}
+		*/
+		// FIN - OpenUp Ltda - #5627
+
+		int tipoDocRecep = 2;
+		String docRecep = partner.getTaxID();
+
+		/*
+		if (partner.getDUNS() != null) {
+			if (partner.getDocumentType().equalsIgnoreCase(MBPartner.DOCUMENTTYPE_RUT)) {
+				tipoDocRecep = 2;
+			} else {
+				tipoDocRecep = 4;
+			}
+			docRecep = partner.getDUNS();
+		} else if (partner.get_Value("cedula") != null) {
+			tipoDocRecep = 3;
+			docRecep = partner.get_Value("cedula").toString();
+		} else {
+			// OpenUp Ltda - #5834 - Raul Capecce - 21/04/2016
+			// Si no se encuentra documento en el receptor, se retorna una excepci�n
+			// tipoDocRecep = 4;
+			// docRecep = CFEMessages.RECEPTOR_NODOC.replace("{{documentNo}}", mInvoice.getDocumentNo());
+			throw new AdempiereException(CFEMessages.RECEPTOR_NODOC.replace("{{documentNo}}", mInvoice.getDocumentNo()));
+			// OpenUp Ltda - #5834 - FIN
+		}
+		*/
+		/* 60  */ receptorTck.setTipoDocRecep(tipoDocRecep);
+		/* 60  */ receptorFact.setTipoDocRecep(tipoDocRecep);
+
+		/*
+		MCountry mCountry = null;
+		try {
+			mCountry = MCountry.get(ctx, Integer.valueOf(partnerLocation.get_Value("C_Country_ID").toString()));
+		} catch (Exception e) {
+			throw new AdempiereException(CFEMessages.RECEPTOR_61);
+		}
+		*/
+
+		MCountry mCountry = null;
+		mCountry = MCountry.get(getCtx(), 336);
+
+
+		if (mCountry == null) throw new AdempiereException("CFEMessages.RECEPTOR_61");
+		/* 61  */ receptorTck.setCodPaisRecep(mCountry.getCountryCode());
+		/* 61  */ receptorFact.setCodPaisRecep(mCountry.getCountryCode());
+
+		if (tipoDocRecep == 2 || tipoDocRecep == 3) {
+			/* 62  */ receptorTck.setDocRecep(docRecep);
+			/* 62  */ receptorFact.setDocRecep(docRecep);
+		} else if (tipoDocRecep == 4 || tipoDocRecep == 5 || tipoDocRecep == 6) {
+			/* 62.1*/ receptorTck.setDocRecepExt(docRecep);
+			/* 62.1*/ receptorFact.setDocRecep(docRecep);
+		}
+
+		/* 63  */ receptorTck.setRznSocRecep(partner.getName2());
+		/* 63  */ receptorFact.setRznSocRecep(partner.getName2());
+
+		MLocation location = (MLocation) partnerLocation.getC_Location();
+		String dirRecep="";
+		String add1 = location.getAddress1();
+		if (add1 != null) {
+			if (add1.length() <= 70)
+				dirRecep = add1;
+			else
+				dirRecep = add1.substring(0, 70);
+		}
+		/* 64  */ receptorTck.setDirRecep(dirRecep);
+		/* 65  */ receptorTck.setCiudadRecep(location.getCity());
+		/* 66  */ receptorTck.setDeptoRecep(location.getRegionName());
+		/* 66.1*/ receptorTck.setPaisRecep("Uruguay");
+		/* 64  */ receptorFact.setDirRecep(dirRecep);
+		/* 65  */ receptorFact.setCiudadRecep(location.getCity());
+		/* 66  */ receptorFact.setDeptoRecep(location.getRegionName());
+		/* 66.1*/ receptorFact.setPaisRecep("Uruguay");
+
+		try {
+			///* 67  */ receptor.setCP(Integer.valueOf(partnerLocation.getUY_Localidades().getzipcode()));
+		} catch (Exception ex) { }
+
+
+
+		//  Area: Totales Encabezado
+
+		MCurrency mCurrency = (MCurrency) this.getC_Currency();
+		if (mCurrency.getISO_Code() == null) throw new AdempiereException("CFEMessages.TOTALES_110");
+		try {
+			/* 110 */ totales.setTpoMoneda(TipMonType.valueOf(mCurrency.getISO_Code()));
+			if (mCurrency.getC_Currency_ID() != 142) {
+				/* OpenUp Ltda - #5749 - Raul Capecce - Se toma la tasa de cambio de la factura, si no est� definida, se calcula para la fecha de la factura */
+				/* OpenUp Ltda - #6138 - Raul Capecce - Se agrega preguntar por 0 y null */
+				//if (mInvoice.getCurrencyRate() != null && !mInvoice.getCurrencyRate().equals(Env.ZERO)) {
+					///* 111 */ totales.setTpoCambio(mInvoice.getCurrencyRate().setScale(3, BigDecimal.ROUND_HALF_UP));
+//				} else {
+					/* OpenUp Ltda - #5749 - Raul Capecce - Se calculaba al reves, ahora se calcula correctamente la tasa de conversion */
+//					BigDecimal currRate = OpenUpUtils.getCurrencyRateForCur1Cur2(mInvoice.getDateInvoiced(), 142, mCurrency.getC_Currency_ID(), mInvoice.getAD_Client_ID(), mInvoice.getAD_Org_ID());
+//					if (currRate.equals(Env.ZERO)) throw new AdempiereException(CFEMessages.TOTALES_111.replace("{{fecha}}", mInvoice.getDateInvoiced().toString()).replace("{{moneda}}", mCurrency.getISO_Code()));
+					///* 111 */ totales.setTpoCambio(currRate.setScale(3, BigDecimal.ROUND_HALF_UP));
+//				}
+			}
+		} catch (AdempiereException ex){
+			throw ex;
+		} catch (Exception ex){
+			throw new AdempiereException("CFEMessages.TOTALES_110_2");
+		}
+
+
+
+		// Inicializando Variables - Se toma como referencia codigo establecido para Migrate
+		/* 112 */ totales.setMntNoGrv(Env.ZERO);
+		/* 113 - No establecido */ totales.setMntExpoyAsim(Env.ZERO);
+		/* 114 - No establecido */ totales.setMntImpuestoPerc(Env.ZERO);
+		/* 115 - No aparece en c�digo de Migrate */
+		/* 116 */ totales.setMntNetoIvaTasaMin(Env.ZERO);
+		/* 117 */ totales.setMntNetoIVATasaBasica(Env.ZERO);
+		/* 118 */ totales.setMntNetoIVAOtra(Env.ZERO);
+
+		/* 121 */ totales.setMntIVATasaMin(Env.ZERO);
+		/* 122 */ totales.setMntIVATasaBasica(Env.ZERO);
+		/* 123 */ totales.setMntIVAOtra(Env.ZERO);
+		/* DocV16 - 129 */ totales.setMontoNF(Env.ZERO);
+
+		/* OpenUp Ltda. - #7550 - Raul Capecce - 18/10/2016
+		 * Se cargan los impuestos de las lineas que tienen tasa 0
+		 * y despues se cargan los impuestos de la tabla C_InvoiceTax
+		 * (en esta tabla solo estan los impuestos que tienen tasa mayor a 0)
+		 *  */
+
+		// Carga del campo C 124 segun Indicadores de Facturacion
+		this.montoC124 = Env.ZERO;
+
+		// Recorro las lineas para obtener los indicadores de Facturaci�n y tomar solamente los que tienen tasa 0
+		MInvoiceLine[] invoiceLines = this.getLines(true);
+		for (int i = 0; i < invoiceLines.length; i++){
+
+			MInvoiceLine mInvL = invoiceLines[i];
+			MTax tax = MTax.get(getCtx(), mInvL.getC_Tax_ID());
+
+			if(tax == null) throw new AdempiereException("CFE Error: Area Totales Encabezado - Impuesto para linea no establecido");
+			if(tax.getTaxIndicator() == null || tax.getTaxIndicator().equalsIgnoreCase("")) throw new AdempiereException("CFE Error: Area Totales Encabezado - Porcentaje de impuesto para la linea no establecido");
+			BigDecimal taxIndicator = tax.getRate();
+
+
+			/* Si tiene dos lineas, tomo el monto a manejar a partir del monto en territorio nacional
+			 * y sumo el monto en territorio internacional en el tag Exportacion y Asimilados (ExpoyAsim).
+			 * En caso de que se a una linea, tomo el monto del campo lineTotalAmt */
+			BigDecimal netoMontoLinea = (BigDecimal) mInvL.get_Value("AmtSubtotal");
+			BigDecimal ivaMontoLinea = mInvL.getTaxAmt();
+
+			addTaxToTag(totales, tax, netoMontoLinea, ivaMontoLinea);
+
+		}
+
+		/* 119 */ totales.setIVATasaMin(new BigDecimal(10).setScale(3));
+		/* 120 */ totales.setIVATasaBasica(new BigDecimal(22).setScale(3));
+
+		/* 124 */ totales.setMntTotal(montoC124); // Total Monto Total
+
+
+		// Validacion de Total a Pagar
+//		BigDecimal validacionPagar = validacionPagar(totales);
+//		if(mInvoice.getGrandTotal().compareTo(validacionPagar) == 0){
+			/* 130 */ totales.setMntPagar(this.getGrandTotal());// Monto total a pagar
+//		} else {
+//			throw new AdempiereException("error en validar Monto total a pagar");
+//		}
+
+		// C126 - Validar que no exeda la cantidad de lineas admitida por cada tipo de CFE
+		// eTicket (solo y con NC y ND): <= 700
+		// Otros CFE: <= 200
+		//if (cfeType == CfeType.eTicket || cfeType == CfeType.eTicket_NC || cfeType == CfeType.eTicket_ND
+		//		|| cfeType == CfeType.eTicket_VxCA || cfeType == CfeType.eTicket_NC_VxCA || cfeType == CfeType.eTicket_ND_VxCA){
+		//	if (invoiceLines.size() > 700) throw new AdempiereException(CFEMessages.TOTALES_126);
+		//} else {
+//			if (invoiceLines.size() > 200) throw new AdempiereException(CFEMessages.TOTALES_126_2);
+		//}
+
+		totales.setCantLinDet(invoiceLines.length);
+
+	}
+
+	private XMLGregorianCalendar Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp timestamp, boolean withTime) {
+		try {
+			GregorianCalendar cal = (GregorianCalendar) GregorianCalendar.getInstance();
+			cal.setTime(timestamp);
+			XMLGregorianCalendar xgcal;
+			if (!withTime){
+				xgcal = DatatypeFactory.newInstance().newXMLGregorianCalendarDate(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH)+1, cal.get(Calendar.DAY_OF_MONTH), DatatypeConstants.FIELD_UNDEFINED);
+			} else {
+				xgcal = DatatypeFactory.newInstance().newXMLGregorianCalendarDate(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH)+1, cal.get(Calendar.DAY_OF_MONTH), DatatypeConstants.FIELD_UNDEFINED );
+				xgcal.setHour(cal.get(Calendar.HOUR_OF_DAY));
+				xgcal.setMinute(cal.get(Calendar.MINUTE));
+				xgcal.setSecond(cal.get(Calendar.SECOND));
+				xgcal.setMillisecond(cal.get(Calendar.MILLISECOND));
+				xgcal.setTimezone(-3*60); // GTM -3 en minutos
+
+			}
+			return xgcal;
+		} catch (DatatypeConfigurationException e) {
+			throw new AdempiereException(e);
+		}
+	}
+
+	private void addTaxToTag(Totales totales, MTax tax, BigDecimal netoMontoLinea, BigDecimal ivaMontoLinea) {
+		if (tax.getRate().compareTo(Env.ZERO) == 0){
+			/* 112 */ totales.setMntNoGrv(totales.getMntNoGrv().add(netoMontoLinea));
+			/* 124 */ montoC124 = montoC124.add(netoMontoLinea);
+		}
+		else if (tax.getRate().compareTo(new BigDecimal(10)) == 0){
+			/* 116 */ totales.setMntNetoIvaTasaMin(totales.getMntNetoIvaTasaMin().add(netoMontoLinea));
+			/* 121 */ totales.setMntIVATasaMin(totales.getMntIVATasaMin().add(ivaMontoLinea));
+			/* 124 */ montoC124 = montoC124.add(netoMontoLinea).add(ivaMontoLinea);
+		}
+		else if (tax.getRate().compareTo(new BigDecimal(22)) == 0){
+			/* 117 */ totales.setMntNetoIVATasaBasica(totales.getMntNetoIVATasaBasica().add(netoMontoLinea));
+			/* 122 */ totales.setMntIVATasaBasica(totales.getMntIVATasaBasica().add(ivaMontoLinea));
+			/* 124 */ montoC124 = montoC124.add(netoMontoLinea).add(ivaMontoLinea);
+		}
+		else {
+			/* 118 */ totales.setMntNetoIVAOtra(totales.getMntNetoIVAOtra().add(netoMontoLinea));
+			/* 123 */ totales.setMntIVAOtra(totales.getMntIVAOtra().add(ivaMontoLinea));
+			/* 124 */ montoC124 = montoC124.add(netoMontoLinea).add(ivaMontoLinea);
+		}
+	}
+
+
+	private void loadDetalleProductosOServicios_eTicket_eFactura(String cfeType, CFEDefType objCfe) {
+
+
+		MInvoiceLine[] mInvoiceLines = this.getLines(true);
+		List<ItemDetFact> lineas = null;
+
+
+		boolean isTaxIncluded = false;
+		MPriceList priceList = (MPriceList) this.getM_PriceList();
+		if (priceList != null && priceList.get_ValueAsBoolean("isTaxIncluded")) {
+			isTaxIncluded = true;
+		}
+
+		/*
+		if (cfeType == CfeType.eTicket || cfeType == CfeType.eTicket_ND || cfeType == CfeType.eTicket_NC
+				|| cfeType == CfeType.eTicket_VxCA || cfeType == CfeType.eTicket_ND_VxCA || cfeType == CfeType.eTicket_NC_VxCA){
+			objCfe.getETck().setDetalle(new ETck.Detalle());
+			lineas = objCfe.getETck().getDetalle().getItem();
+		} else if (cfeType == CfeType.eFactura || cfeType == CfeType.eFactura_ND || cfeType == CfeType.eFactura_NC
+				|| cfeType == CfeType.eFactura_VxCA || cfeType == CfeType.eFactura_ND_VxCA || cfeType == CfeType.eFactura_NC_VxCA){
+			objCfe.getEFact().setDetalle(new EFact.Detalle());
+			lineas = objCfe.getEFact().getDetalle().getItem();
+		}
+		*/
+
+		objCfe.getEFact().setDetalle(new CFEDefType.EFact.Detalle());
+		lineas = objCfe.getEFact().getDetalle().getItem();
+
+		int position = 1;
+		for (int i = 0; i < mInvoiceLines.length; i++) {
+
+			MInvoiceLine mInvoiceLine = mInvoiceLines[i];
+
+			BigDecimal amtMntLinea = null;
+
+			ItemDetFact detalleItem = new ItemDetFact();
+			lineas.add(detalleItem);
+
+			/* 1  */
+			detalleItem.setNroLinDet(position++);
+			MProduct mProduct = new MProduct(getCtx(), mInvoiceLine.getM_Product_ID(), get_TrxName());
+			ItemDetFact.CodItem codItem = null;
+
+			// Codigo interno del Cliente
+			if (mProduct.getValue() != null) {
+				codItem = new ItemDetFact.CodItem();
+				/* 2  */
+				codItem.setTpoCod("INT1");
+				/* 3  */
+				codItem.setCod(mProduct.getValue());
+				detalleItem.getCodItem().add(codItem);
+			}
+
+			// Codigo EAN
+			if (mProduct.getUPC() != null) {
+				codItem = new ItemDetFact.CodItem();
+				/* 2  */
+				codItem.setTpoCod("EAN");
+				/* 3  */
+				codItem.setCod(mProduct.getUPC());
+				detalleItem.getCodItem().add(codItem);
+			}
+
+			MTax tax = new MTax(getCtx(), mInvoiceLine.getC_Tax_ID(), null);
+			if (tax.getRate().compareTo(new BigDecimal(10)) == 0) {
+				/* 4  */
+				detalleItem.setIndFact(BigInteger.valueOf(2));
+			} else if (tax.getRate().compareTo(new BigDecimal(22)) == 0) {
+				/* 4  */
+				detalleItem.setIndFact(BigInteger.valueOf(3));
+
+			/* OpenUp Ltda. Raul Capecce - #5873
+			 * Nicolas Taurisano y Rodrigo Barbe informan que el iva percibidocarni debe ir como exento*/
+				//} else if(tax.getValue().equalsIgnoreCase("percibidocarni")) {
+				//	/* 4  */ detalleItem.setIndFact(BigInteger.valueOf(4));
+			} else if (tax.getRate().compareTo(Env.ZERO) == 0) {
+				/* 4  */
+				detalleItem.setIndFact(BigInteger.valueOf(1));
+			/* FIN - #5873 */
+
+			/* 6  */
+				detalleItem.setIndAgenteResp(null);
+
+			/* 7  */
+				detalleItem.setNomItem(mInvoiceLine.getProduct().getName());
+			/* 8  */
+				detalleItem.setDscItem(mInvoiceLine.getProduct().getDescription());
+			/* 9  */
+				detalleItem.setCantidad(mInvoiceLine.getQtyInvoiced());
+			/* 10 */
+				detalleItem.setUniMed(mInvoiceLine.getProduct().getUOMSymbol());
+
+			/* OpenUp Ltda. - Raul Capecce - #6638
+			 * Se establece valor absoluto del precio unitario, en el �nico caso de redoneo negativo, se pasa como positivo con indicador de facturaci�n 7 (negativo) en vez de 6 (positivo) */
+			/* OpenUp Ltda. - Raul Capecce - #7531
+			 * Se cambia PriceActual a PriceEntered */
+				BigDecimal precioUnitario = mInvoiceLine.getPriceEntered().setScale(6, RoundingMode.HALF_UP).abs();
+
+			/*
+			 * OpenUp Ltda. - Raul Capecce - #7610 - 25/10/2016
+			 * Se toma precio unitario directamente (ya viene con impuestos si corresponde)
+			 */
+//				if (!isTaxIncluded) {
+//					BigDecimal taxIndicator = BigDecimal.valueOf(Double.valueOf(tax.getTaxIndicator().replace("%", "")));
+//					precioUnitario = precioUnitario.multiply(Env.ONEHUNDRED.add(taxIndicator)).divide(Env.ONEHUNDRED).setScale(6, RoundingMode.HALF_UP);
+//				}
+				// OpenUp Ltda. - #7610 - Fin
+
+			/* 11 */
+				detalleItem.setPrecioUnitario(precioUnitario);
+
+
+
+			/* OpenUp Ltda. - Raul Capecce - #7550
+			 * Seg�n Nicolas Lopez, no se est�n aplicando descuentos a nivel de la linea en ningun cliente
+			 *  */
+//				/* OpenUp Ltda. - Raul Capecce - #6638
+//				 * Como el redondeo es el �nico que puede utilizar los indicadores de facturaci�n 6 y 7 (Producto o Servicio No Facturable)
+//				 * Se entiende que no se tienen que aplicar ningun descuento */
+//				if (detalleItem.getIndFact().intValue() != 6 && detalleItem.getIndFact().intValue() != 7) {
+//
+//					if(mInvoiceLine.getFlatDiscount() != null && mInvoiceLine.getFlatDiscount().compareTo(Env.ZERO) > 0){
+//						BigDecimal descuento = mInvoiceLine.getPriceActual().subtract(mInvoiceLine.getPriceEntered());
+//						/* 12 */ detalleItem.setDescuentoPct(mInvoiceLine.getFlatDiscount());
+//						/* 13 */ detalleItem.setDescuentoMonto(descuento);
+//					}
+//				}
+
+
+
+			/* 14 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
+			/* 15 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
+
+
+			/* TODO: NOTA IMPORTANTE: RECARGO POR LINEA - campos 16 y 17 se marcan en 0 teniendose en cuenta
+			 * de que no se aplicaran recargos por linea.
+			 * Tener en cuenta que para agregar impuestos a la linea, falta agregar
+			 * la columna de impuesto a la C_InvoiceLine (o manejar un descuento negativo).
+			 */
+			/* 16 */
+				detalleItem.setRecargoPct(Env.ZERO);
+			/* 17 */
+				detalleItem.setRecargoMnt(Env.ZERO);
+
+			/* 18 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
+			/* 19 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
+
+
+			/* TODO: CAMPOS 20, 21, 22 y 23 se dejan sin cargar
+			 * al igual que los campos 127 y 128 del encabezado
+			 */
+
+
+
+			/* OpenUp Ltda. - #7550 - Raul Capecce - 18/10/2016
+			 * Se pasa deja de calcular el monto del campo 24 */
+//				/* 24 - C24=(C9*C11)-C13+C17 */
+//				BigDecimal montoTotalLinea = Env.ZERO;
+//				montoTotalLinea = montoTotalLinea.add(mInvoiceLine.getQtyInvoiced());
+//
+//				/* OpenUp Ltda. - Raul Capecce - #6638
+//				 * Como el redondeo es el �nico que puede utilizar los indicadores de facturaci�n 6 y 7 (Producto o Servicio No Facturable)
+//				 * Seg�n Soporte InvoiCy si es negativo se pasa a positivo pero con el indicador 7 */
+//				/* OpenUp Ltda. - Raul Capecce - #7531 */
+//				BigDecimal priceEntered = mInvoiceLine.getPriceEntered();
+//				priceEntered = priceEntered.abs();
+//				montoTotalLinea = montoTotalLinea.multiply(priceEntered.setScale(2, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
+//				/* FIN #6638 */
+//
+//				if(mInvoiceLine.getFlatDiscount() != null && mInvoiceLine.getFlatDiscount().compareTo(Env.ZERO) > 0){
+//					montoTotalLinea = montoTotalLinea.subtract(mInvoiceLine.getPriceActual().subtract(mInvoiceLine.getPriceEntered())).setScale(2, RoundingMode.HALF_UP);
+//				}
+//				montoTotalLinea = montoTotalLinea.add(detalleItem.getRecargoMnt()); // Aun no se toma en cuenta, por lo tanto mas arriba se setea en 0
+//
+//				/* OpenUp Ltda. - #7132 - Ra�l Capecce - 23/09/2016
+//				 * El campo priceActual ya cuenta con el impuesto incluido si la lista de precios lo indica, por lo tanto se comenta la secci�n de c�digo que agrega redundantemente el impuesto a la liena del xml
+//				 * */
+////				/* OpenUp Ltda - #7034 - Ra�l Capecce - 16/08/2016
+////				 * Se Incluye el impuesto a nivel de la linea si se indica en la lista de precios que los precios tienen impuestos incluidos. */
+////				MPriceList priceList = (MPriceList) mInvoice.getM_PriceList();
+////				if (priceList != null && priceList.get_ValueAsBoolean("isTaxIncluded")) {
+////					MTax taxLine = (MTax) mInvoiceLine.getC_Tax();
+////					if (taxLine != null) {
+////						BigDecimal taxPorcentaje = BigDecimal.valueOf(Double.valueOf(tax.getTaxIndicator().replace("%", "")));
+////						montoTotalLinea = montoTotalLinea.add(montoTotalLinea.multiply(taxPorcentaje).divide(Env.ONEHUNDRED).setScale(2, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
+////					}
+////				}
+////				/* FIN #7034*/
+
+			/*
+			 * OpenUp Ltda. - #7610 - Raul Capecce - 25/10/2016
+			 * Con impuestos incluidos tomo el total de linea, en caso contrario tomo el subtotal
+			 */
+			/*
+			 * OpenUp Ltda. - #8560 - Raul Capecce - 01/02/2017
+			 * Tomo el valor absoluto del total o subtotal debido a que siempre el precio unitario es positivo,
+			 * el signo lo indica el indicador de facturacion (C24=(C9*C11)-C13+C17)
+			 */
+				if (isTaxIncluded) {
+				/* 24 */
+					detalleItem.setMontoItem(mInvoiceLine.getLineTotalAmt().abs());
+				} else {
+				/* 24 */
+					detalleItem.setMontoItem(((BigDecimal) mInvoiceLine.get_Value("AmtSubtotal")).abs());
+				}
+			/* OpenUp Ltda. - #8560 - Fin */
+			/* OpenUp Ltda. - #7610 - Fin */
+
+
+			}
+
+
+		}
+
+	}
+
+	private void loadCAE(CFEEmpresasType objECfe) {
+		CFEDefType objCfe = objECfe.getCFE();
+
+		CAEDataType caeDataType = new CAEDataType();
+		objCfe.getEFact().setCAEData(caeDataType);
+
+		caeDataType.setCAEID(new BigDecimal(90160029355.0).toBigInteger());
+		caeDataType.setDNro(new BigDecimal(2000001).toBigInteger());
+		caeDataType.setHNro(new BigDecimal(2100000).toBigInteger());
+		caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2018-03-03 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+
+	}
+
+
+
+	private void SendCfe(CFEDefType cfeDefType) {
+
+		try {
+
+			CFEEmpresasType cfeEmpresasType = new CFEEmpresasType();
+			cfeEmpresasType.setCFE(cfeDefType);
+
+			File file = File.createTempFile("SistecoXMLCFE", ".xml");
+			file.deleteOnExit();
+			JAXBContext jaxbContext = JAXBContext.newInstance(CFEEmpresasType.class);
+			Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+
+
+			jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+
+			jaxbMarshaller.marshal(cfeEmpresasType, file);
+
+			FileReader fr = new FileReader(file);
+			BufferedReader br = new BufferedReader(fr);
+
+			String linea;
+			String xml = "";
+			while((linea=br.readLine())!=null) {
+				xml += linea + "\n";
+			}
+
+
+//			// Quito namespaces
+			xml = xml
+//					//.replaceAll("xmlns:ns2=\"[a-zA-Z1-90:/.#]*\"", "")
+//					//.replaceAll("xmlns:ns3=\"[a-zA-Z1-90:/.#]*\"", "")
+//					//.replace("<CFE_Adenda  >", "<CFE_Adenda>")
+//					//.replace("standalone=\"yes\"", "")
+					.replace("<CFE xmlns:ns0=\"http://cfe.dgi.gub.uy\" version=\"1.0\">", "<ns0:CFE version=\"1.0\">")
+					.replace("</CFE>","</ns0:CFE>")
+					.replace("<CFE_Adenda ", "<ns0:CFE_Adenda xmlns:ns0=\"http://cfe.dgi.gub.uy\"")
+					.replace("</CFE_Adenda>", "</ns0:CFE_Adenda>")
+					.replace("xmlns:ns0=\"http://cfe.dgi.gub.uy\"xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"", "xmlns:ns0=\"http://cfe.dgi.gub.uy\" xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"");
+
+			// Guardo XML sin los namespace
+			PrintWriter pw = new PrintWriter(file);
+			pw.println(xml);
+			pw.close();
+
+
+			Service service = new Service();
+			Call call = (Call) service.createCall();
+			// Establecemos la dirección en la que está activado el WebService
+			call.setTargetEndpointAddress(new java.net.URL("http://10.0.0.130/ws_efactura/ws_efactura.php"));
+
+			//call.setOperationName(new QName("efac", "http://www.objetos.com.uy/efactura/"));
+			// Establecemos el nombre del método a invocar
+			call.setOperationName(new QName("http://www.objetos.com.uy/efactura/", "recepcionDocumento"));
+			call.setSOAPActionURI("http://www.objetos.com.uy/efactura/recepcionDocumento");
+
+			// Establecemos los parámetros que necesita el método
+			// Observe que se deben especidicar correctamente tanto el nómbre como el tipo de datos. Esta información se puede obtener viendo el WSDL del servicio Web
+			call.addParameter(new QName("entrada"), XMLType.XSD_STRING, ParameterMode.IN);
+
+			// Especificamos el tipo de datos que devuelve el método.
+			call.setReturnType(XMLType.XSD_STRING);
+
+			// Invocamos el método
+			String result = (String) call.invoke("http://www.objetos.com.uy/efactura/", "recepcionDocumento", new Object[] { "<![CDATA[" + xml + "]]>" });
+
+			// Quitamos el CDATA, solo al comienzo y al final si estan en el string
+			result = result.replaceAll("^<!\\[CDATA\\[", "").replaceAll("]]>$", "");
+
+
+			// Guardo la respuesta de Sisteco
+			File response = File.createTempFile("SistecoXMLCFEResponse", ".xml");
+			response.deleteOnExit();
+			FileWriter fichero = new FileWriter(response);
+			PrintWriter pwResponse = new PrintWriter(fichero);
+			pwResponse.print(result);
+			pwResponse.close();
+
+			SistecoResponseDTO cfeDtoSisteco = SistecoConvertResponse.getObjSistecoResponseDTO(result);
+
+			// Si la respuesta contiene errores, lanzo una excepci�n
+			if (cfeDtoSisteco.getStatus() != 0) {
+				throw new AdempiereException("CFEMessages.CFE_ERROR_PROVEEDOR : " + cfeDtoSisteco.getDescripcion());
+			}
+
+
+			/*
+			MCFEDataEnvelope mCfeDataEnvelope = new MCFEDataEnvelope(getCtx(), 0, get_TrxName());
+			mCfeDataEnvelope.setProviderAgent(MCFEDataEnvelope.PROVIDERAGENT_Sisteco);
+			mCfeDataEnvelope.saveEx();
+
+			PO docPo = (PO) cfeDto;
+			MCFEDocCFE docCfe = new MCFEDocCFE(getCtx(), 0, get_TrxName());
+			docCfe.setAD_Table_ID(docPo.get_Table_ID());
+			docCfe.setRecord_ID(docPo.get_ID());
+			docCfe.setUY_CFE_DataEnvelope_ID(mCfeDataEnvelope.get_ID());
+			try {
+				docCfe.setC_DocType_ID(BigDecimal.valueOf(docPo.get_ValueAsInt("C_DocTypeTarget_ID")));
+				docCfe.setDocumentNo(docPo.get_ValueAsString("documentNo"));
+			} catch (Exception e2) {}
+			docCfe.saveEx();
+
+
+			MCFESistecoSRspCFE sistecoCfeResp = new MCFESistecoSRspCFE(getCtx(), 0, get_TrxName());
+			sistecoCfeResp.setCFEStatus(String.valueOf(cfeDtoSisteco.getStatus()));
+			sistecoCfeResp.setCFEDescripcion(cfeDtoSisteco.getDescripcion());
+			if (sistecoCfeResp.getCFEStatus().equalsIgnoreCase("0")) {
+				sistecoCfeResp.setCFETipo(BigDecimal.valueOf(cfeDtoSisteco.getTipoCFE()));
+				sistecoCfeResp.setCFESerie(cfeDtoSisteco.getSerie());
+				sistecoCfeResp.setCFEMro(cfeDtoSisteco.getMro());
+				//sistecoCfeResp.setCFETmstFirma(cfeDtoSisteco.getTmstFirma());
+				sistecoCfeResp.setCFEDigestValue(cfeDtoSisteco.getDigestValue());
+				sistecoCfeResp.setCFEResolucion(String.valueOf(cfeDtoSisteco.getResolucion()));
+				sistecoCfeResp.setCFEAnioResolucion(BigDecimal.valueOf(cfeDtoSisteco.getAnioResolucion()));
+				sistecoCfeResp.setCFEUrlDocumentoDGI(cfeDtoSisteco.getUrlDocumentoDGI());
+				sistecoCfeResp.setCFECAEID(cfeDtoSisteco.getCaeId());
+				sistecoCfeResp.setCFEDNro(cfeDtoSisteco.getdNro());
+				sistecoCfeResp.setCFEHNro(cfeDtoSisteco.gethNro());
+				//sistecoCfeResp.setCFEFecVenc(cfeDtoSisteco.getFecVenc());
+			}
+			sistecoCfeResp.setUY_CFE_DocCFE_ID(docCfe.get_ID());
+			sistecoCfeResp.saveEx();
+			*/
+
+			MZCFERespuestaProvider cfeRespuesta = new MZCFERespuestaProvider(getCtx(), 0, get_TrxName());
+			cfeRespuesta.setAD_Table_ID(I_C_Invoice.Table_ID);
+			cfeRespuesta.setRecord_ID(this.get_ID());
+			cfeRespuesta.setC_DocType_ID(this.getC_DocType_ID());
+			cfeRespuesta.setDocumentNoRef(this.getDocumentNo());
+			cfeRespuesta.setCFE_Status(String.valueOf(cfeDtoSisteco.getStatus()));
+			cfeRespuesta.setCFE_Descripcion(cfeDtoSisteco.getDescripcion());
+			if (cfeRespuesta.getCFE_Status().equalsIgnoreCase("0")){
+				cfeRespuesta.setCFE_Tipo(BigDecimal.valueOf(cfeDtoSisteco.getTipoCFE()));
+				cfeRespuesta.setCFE_Serie(cfeDtoSisteco.getSerie());
+				cfeRespuesta.setCFE_Numero(cfeDtoSisteco.getMro());
+				cfeRespuesta.setCFE_DigitoVerificador(cfeDtoSisteco.getDigestValue());
+				cfeRespuesta.setCFE_Resolucion(String.valueOf(cfeDtoSisteco.getResolucion()));
+				cfeRespuesta.setCFE_AnioResolucion(cfeDtoSisteco.getAnioResolucion());
+				cfeRespuesta.setCFE_URL_DGI(cfeDtoSisteco.getUrlDocumentoDGI());
+				cfeRespuesta.setCFE_CAE_ID(cfeDtoSisteco.getCaeId());
+				cfeRespuesta.setCFE_NroInicial_CAE(cfeDtoSisteco.getdNro());
+				cfeRespuesta.setCFE_NroFinal_CAE(cfeDtoSisteco.gethNro());
+			}
+			cfeRespuesta.saveEx();
+
+		} catch (Exception e) {
+			throw new AdempiereException(e);
+		}
+
+	}
 
 
 }	//	MInvoice
