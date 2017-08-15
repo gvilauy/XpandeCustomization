@@ -2519,10 +2519,10 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			objECfe.setAdenda(this.getDescription());
 
 			// Sigo
-			if (objCfe.getEResg().getEncabezado() != null) {
-				objCfe.getEResg().getEncabezado().setEmisor(null);
+			if (objCfe.getEFact().getEncabezado() != null) {
+				objCfe.getEFact().getEncabezado().setEmisor(null);
 			}
-			objCfe.getEResg().setTmstFirma(null);
+			objCfe.getEFact().setTmstFirma(null);
 
 			// Sigooo
 			this.SendCfe(objCfe);
@@ -2585,7 +2585,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 		MDocType doc = MDocType.get(getCtx(), this.getC_DocTypeTarget_ID());
 		//BigInteger doctype = new BigInteger(doc.get_Value("CfeType").toString());
-		BigInteger doctype = new BigInteger("141");
+		BigInteger doctype = new BigInteger("111");
 		/* 2   */ idDocTck.setTipoCFE(doctype);
 		/* 2   */ idDocFact.setTipoCFE(doctype);
 
@@ -2819,12 +2819,15 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				dirRecep = add1.substring(0, 70);
 		}
 		/* 64  */ receptorTck.setDirRecep(dirRecep);
-		/* 65  */ receptorTck.setCiudadRecep(location.getCity());
-		/* 66  */ receptorTck.setDeptoRecep(location.getRegionName());
-		/* 66.1*/ receptorTck.setPaisRecep("Uruguay");
 		/* 64  */ receptorFact.setDirRecep(dirRecep);
+
+		/* 65  */ receptorTck.setCiudadRecep(location.getCity());
 		/* 65  */ receptorFact.setCiudadRecep(location.getCity());
+
+		/* 66  */ receptorTck.setDeptoRecep(location.getRegionName());
 		/* 66  */ receptorFact.setDeptoRecep(location.getRegionName());
+
+		/* 66.1*/ receptorTck.setPaisRecep("Uruguay");
 		/* 66.1*/ receptorFact.setPaisRecep("Uruguay");
 
 		try {
@@ -2890,7 +2893,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			MTax tax = MTax.get(getCtx(), mInvL.getC_Tax_ID());
 
 			if(tax == null) throw new AdempiereException("CFE Error: Area Totales Encabezado - Impuesto para linea no establecido");
-			if(tax.getTaxIndicator() == null || tax.getTaxIndicator().equalsIgnoreCase("")) throw new AdempiereException("CFE Error: Area Totales Encabezado - Porcentaje de impuesto para la linea no establecido");
+			if(tax.getRate() == null) throw new AdempiereException("CFE Error: Area Totales Encabezado - Porcentaje de impuesto para la linea no establecido");
 			BigDecimal taxIndicator = tax.getRate();
 
 
@@ -3055,25 +3058,27 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			} else if (tax.getRate().compareTo(Env.ZERO) == 0) {
 				/* 4  */
 				detalleItem.setIndFact(BigInteger.valueOf(1));
+			}
+
 			/* FIN - #5873 */
 
 			/* 6  */
-				detalleItem.setIndAgenteResp(null);
+			detalleItem.setIndAgenteResp(null);
 
 			/* 7  */
-				detalleItem.setNomItem(mInvoiceLine.getProduct().getName());
+			detalleItem.setNomItem(mInvoiceLine.getProduct().getName());
 			/* 8  */
-				detalleItem.setDscItem(mInvoiceLine.getProduct().getDescription());
+			detalleItem.setDscItem(mInvoiceLine.getProduct().getDescription());
 			/* 9  */
-				detalleItem.setCantidad(mInvoiceLine.getQtyInvoiced());
+			detalleItem.setCantidad(mInvoiceLine.getQtyInvoiced());
 			/* 10 */
-				detalleItem.setUniMed(mInvoiceLine.getProduct().getUOMSymbol());
+			detalleItem.setUniMed(mInvoiceLine.getProduct().getUOMSymbol());
 
 			/* OpenUp Ltda. - Raul Capecce - #6638
 			 * Se establece valor absoluto del precio unitario, en el �nico caso de redoneo negativo, se pasa como positivo con indicador de facturaci�n 7 (negativo) en vez de 6 (positivo) */
 			/* OpenUp Ltda. - Raul Capecce - #7531
 			 * Se cambia PriceActual a PriceEntered */
-				BigDecimal precioUnitario = mInvoiceLine.getPriceEntered().setScale(6, RoundingMode.HALF_UP).abs();
+			BigDecimal precioUnitario = mInvoiceLine.getPriceEntered().setScale(6, RoundingMode.HALF_UP).abs();
 
 			/*
 			 * OpenUp Ltda. - Raul Capecce - #7610 - 25/10/2016
@@ -3086,7 +3091,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				// OpenUp Ltda. - #7610 - Fin
 
 			/* 11 */
-				detalleItem.setPrecioUnitario(precioUnitario);
+			detalleItem.setPrecioUnitario(precioUnitario);
 
 
 
@@ -3117,9 +3122,9 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			 * la columna de impuesto a la C_InvoiceLine (o manejar un descuento negativo).
 			 */
 			/* 16 */
-				detalleItem.setRecargoPct(Env.ZERO);
+			detalleItem.setRecargoPct(Env.ZERO);
 			/* 17 */
-				detalleItem.setRecargoMnt(Env.ZERO);
+			detalleItem.setRecargoMnt(Env.ZERO);
 
 			/* 18 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
 			/* 19 - Tipo de obligatoriedad de tabla 3 (tabla opcional) */
@@ -3175,18 +3180,15 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			 * Tomo el valor absoluto del total o subtotal debido a que siempre el precio unitario es positivo,
 			 * el signo lo indica el indicador de facturacion (C24=(C9*C11)-C13+C17)
 			 */
-				if (isTaxIncluded) {
+			if (isTaxIncluded) {
 				/* 24 */
-					detalleItem.setMontoItem(mInvoiceLine.getLineTotalAmt().abs());
-				} else {
+				detalleItem.setMontoItem(mInvoiceLine.getLineTotalAmt().abs());
+			} else {
 				/* 24 */
-					detalleItem.setMontoItem(((BigDecimal) mInvoiceLine.get_Value("AmtSubtotal")).abs());
-				}
+				detalleItem.setMontoItem(((BigDecimal) mInvoiceLine.get_Value("AmtSubtotal")).abs());
+			}
 			/* OpenUp Ltda. - #8560 - Fin */
 			/* OpenUp Ltda. - #7610 - Fin */
-
-
-			}
 
 
 		}
