@@ -1948,7 +1948,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			info.append(" - @CounterDoc@: @C_Invoice_ID@=").append(counter.getDocumentNo());
 
 		// Cfe
-		if (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)){
+		if ((docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)) || (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARCreditMemo))){
 			this.cfe();
 		}
 
@@ -2494,6 +2494,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 	private void cfe(){
 		try{
 
+			boolean esFactura = true;
 
 
 			CFEEmpresasType objECfe = new CFEEmpresasType();
@@ -2502,16 +2503,24 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 			//objCfe.setEFact(new CFEDefType.EFact());
 
-			String cfeType = "141";
+			String cfeType = "111";
+
+			MDocType doc = (MDocType) this.getC_DocTypeTarget();
+			if (doc.getDocBaseType().equalsIgnoreCase("ARC")){
+				cfeType = "112";
+				esFactura = false;
+			}
 
 			loadEncabezado_eTicket_eFactura(cfeType, objCfe);
 			loadDetalleProductosOServicios_eTicket_eFactura(cfeType, objCfe);
 			//loadInformacionDeDescuentosORecargos_eTicket_eFactura(cfeType, objCfe);
 
-			//loadInfoReferencia_eTicket_eFactura(cfeType, objCfe);
+			if (doc.getDocBaseType().equalsIgnoreCase("ARC")){
+				loadInfoReferencia_eTicket_eFactura(cfeType, objCfe);
+			}
 
 			//loadComplementoFiscal(cfeType, objCfe);
-			loadCAE(objECfe);
+			loadCAE(objECfe, esFactura);
 
 			//loadTimestamp(cfeType, objCfe);
 			objCfe.getEFact().setTmstFirma(Timestamp_to_XmlGregorianCalendar_OnlyDate(this.getDateInvoiced(), true));
@@ -2585,7 +2594,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 		MDocType doc = MDocType.get(getCtx(), this.getC_DocTypeTarget_ID());
 		//BigInteger doctype = new BigInteger(doc.get_Value("CfeType").toString());
-		BigInteger doctype = new BigInteger("111");
+		BigInteger doctype = new BigInteger(cfeType);
 		/* 2   */ idDocTck.setTipoCFE(doctype);
 		/* 2   */ idDocFact.setTipoCFE(doctype);
 
@@ -3195,19 +3204,27 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 	}
 
-	private void loadCAE(CFEEmpresasType objECfe) {
+	private void loadCAE(CFEEmpresasType objECfe, boolean esFactura) {
 		CFEDefType objCfe = objECfe.getCFE();
 
 		CAEDataType caeDataType = new CAEDataType();
 		objCfe.getEFact().setCAEData(caeDataType);
 
-		caeDataType.setCAEID(new BigDecimal(90160029355.0).toBigInteger());
-		caeDataType.setDNro(new BigDecimal(2000001).toBigInteger());
-		caeDataType.setHNro(new BigDecimal(2100000).toBigInteger());
-		caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2018-03-03 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+		if (esFactura){
+			caeDataType.setCAEID(new BigDecimal(90160029355.0).toBigInteger());
+			caeDataType.setDNro(new BigDecimal(2000001).toBigInteger());
+			caeDataType.setHNro(new BigDecimal(2100000).toBigInteger());
+			caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2018-03-03 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+		}
+		else{
+			// Notas de credito
+			caeDataType.setCAEID(new BigDecimal(90160029401.0).toBigInteger());
+			caeDataType.setDNro(new BigDecimal(1000001).toBigInteger());
+			caeDataType.setHNro(new BigDecimal(1030000).toBigInteger());
+			caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2018-03-03 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+		}
 
 	}
-
 
 
 	private void SendCfe(CFEDefType cfeDefType) {
@@ -3356,6 +3373,90 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 		} catch (Exception e) {
 			throw new AdempiereException(e);
+		}
+
+	}
+
+	private void loadInfoReferencia_eTicket_eFactura(String cfeType, CFEDefType objCfe) {
+
+		//ReferenceType refType = null;
+		Referencia referencias = new Referencia();
+		MInvoice refInv = null;
+		ArrayList<MInvoice> refInvs = null;
+
+		String sqlGetRefInv = "SELECT C_Invoice_To_ID FROM Z_InvoiceRef WHERE C_Invoice_ID = " + this.get_ID();
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			refInvs = new ArrayList<MInvoice>();
+			pstmt = DB.prepareStatement (sqlGetRefInv, get_TrxName());
+			rs = pstmt.executeQuery ();
+
+			while (rs.next()){
+				refInv = new MInvoice(getCtx(), rs.getInt("C_Invoice_To_ID"), get_TrxName());
+				refInvs.add(refInv);
+			}
+
+			loadReferencia(cfeType, objCfe, refInvs);
+
+		} catch (Exception e) {
+			throw new AdempiereException("CFEMessages.INFOREF_ERRGETREF");
+		} finally {
+			try {
+				if (rs != null) rs.close();
+				if (pstmt != null) pstmt.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
+	}
+
+	private void loadReferencia(String cfeType, CFEDefType objCfe, ArrayList<MInvoice> refInvs) {
+		Referencia referencias = new Referencia();
+		Referencia.Referencia1 referencia = null;
+
+		/* No se permiten mas de 40 documentos referenciados desde una misma nota de correcci�n */
+		if (refInvs.size() > 40) throw new AdempiereException("CFEMessages.INFOREF_ERRNOMORE40INV");
+
+		objCfe.getEFact().setReferencia(referencias);
+
+		int invCount = 1;
+		for (MInvoice refInv : refInvs) {
+			referencia = new Referencia.Referencia1();
+			referencias.getReferencia1().add(referencia);
+
+
+			/*   1 */ referencia.setNroLinRef(invCount ++);
+
+			/* OpenUp Ltda - #6182 - Raul Capecce - 16/06/2016
+			 * Defino si establezco la referencia a una factura o si envio la observacion */
+			/*   2   Dato no necesario cuando se cuenta con facturas a referenciar */
+			/* #6182 - Fin */
+
+
+
+			try{
+				/*   3 */ referencia.setTpoDocRef(BigInteger.valueOf(Long.valueOf("111")));
+			}catch(Exception ex){
+				throw new AdempiereException("CFEMessages.INFOREF_003_PARSEERROR");
+			}
+
+			MDocType doc = MDocType.get(getCtx(), refInv.getC_DocTypeTarget_ID());
+
+			MSequence sec = new MSequence(getCtx(), doc.getDefiniteSequence_ID(), get_TrxName());
+			if(sec.getPrefix() != null){
+				/*   4 */ referencia.setSerie(sec.getPrefix());
+			} else throw new AdempiereException("CFEMessages.INFOREF_004_NODEF");
+
+			if (refInv.getDocumentNo() != null) {
+				String documentNo = refInv.getDocumentNo();
+				documentNo = documentNo.replaceAll("[^0-9]", ""); // Expresi�n regular para quitar todo lo que no es n�mero
+				String docno = org.apache.commons.lang.StringUtils.leftPad(String.valueOf(documentNo), 7, "0");
+
+				/*   5 */ referencia.setNroCFERef(new BigInteger(docno));
+			} else throw new AdempiereException("CFEMessages.INFOREF_005_NODEF");
+
 		}
 
 	}
