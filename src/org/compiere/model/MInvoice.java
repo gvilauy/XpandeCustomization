@@ -1404,7 +1404,13 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			return DocAction.STATUS_Invalid;
 		}
 
-		createPaySchedule();
+		// Xpande. Gabriel Vila. 28/08/2017. Issue #7
+		// Creo payschedule solo cuando la invoice no esta marcada con vencimientos manuales.
+		// Pongo el create dentro de un nuevo IF
+		if (!this.get_ValueAsBoolean("VencimientoManual")){
+			createPaySchedule();
+		}
+		// Xpande. Issue #7.
 
 		//	Credit Status
 		if (isSOTrx() && !isReversal())
