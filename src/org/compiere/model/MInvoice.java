@@ -1953,10 +1953,12 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (counter != null)
 			info.append(" - @CounterDoc@: @C_Invoice_ID@=").append(counter.getDocumentNo());
 
+		// Xpande. Gabriel Vila.
 		// Cfe
 		if ((docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)) || (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARCreditMemo))){
 			this.cfe();
 		}
+		// Xpande.
 
 		m_processMsg = info.toString().trim();
 		setProcessed(true);
