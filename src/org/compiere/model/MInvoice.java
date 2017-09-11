@@ -1317,7 +1317,19 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 	 */
 	public int getPrecision()
 	{
-		return MCurrency.getStdPrecision(getCtx(), getC_Currency_ID());
+		// Xpande. Gabriel Vila. 11/09/2017. Issue #8.
+		// Para comprobantes de venta, tomo la precisión desde lista de precios en caso de tenerla.
+		// Comento linea original y hago los cambios.
+
+		// return MCurrency.getStdPrecision(getCtx(), getC_Currency_ID());
+
+		int precision = MCurrency.getStdPrecision(getCtx(), getC_Currency_ID());
+		if ((this.isSOTrx()) && (this.getM_PriceList_ID() > 0)){
+			precision = MPriceList.getPricePrecision(getCtx(), this.getM_PriceList_ID());
+		}
+		return precision;
+		// Xpande.
+
 	}	//	getPrecision
 
 
