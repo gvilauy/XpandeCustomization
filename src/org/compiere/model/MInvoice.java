@@ -957,10 +957,37 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				setM_PriceList_ID(ii);
 			else
 			{
+				// Xpande. Gabriel Vila. 27/09/2017. Issue #9.
+				// Para compras, si tengo moneda y aún no tengo lista, prmero intento obtener lista de precios compra en moneda del comprobante.
+				// Si no obtengo nada, entonces voy por el mecanismo del trunk.
+				// El codigo origen del trunk se comenta y se sustituye por el customizado.
+
+				/*
+
 				String sql = "SELECT M_PriceList_ID FROM M_PriceList WHERE AD_Client_ID=? AND IsDefault='Y'";
 				ii = DB.getSQLValue (null, sql, getAD_Client_ID());
 				if (ii != 0)
 					setM_PriceList_ID (ii);
+				*/
+
+				if (!this.isSOTrx()){
+					if (this.getC_Currency_ID() > 0){
+						String sql = " select max(m_pricelist_id) from z_comercialconfigplist where ad_client_id =" + this.getAD_Client_ID() +
+								" and c_currency_id =" + this.getC_Currency_ID() +
+								" and issopricelist ='N'";
+						ii = DB.getSQLValue (null, sql);
+						if (ii != 0)
+							setM_PriceList_ID (ii);
+					}
+				}
+				if (getM_PriceList_ID() == 0){
+					String sql = "SELECT M_PriceList_ID FROM M_PriceList WHERE AD_Client_ID=? AND IsDefault='Y'";
+					ii = DB.getSQLValue (null, sql, getAD_Client_ID());
+					if (ii != 0)
+						setM_PriceList_ID (ii);
+				}
+				// Xpande. Issue #9.
+
 			}
 		}
 
