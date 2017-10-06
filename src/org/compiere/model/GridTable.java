@@ -1460,6 +1460,11 @@ public class GridTable extends AbstractTableModel
 		}
 		catch (Throwable e)
 		{
+			// Xpande. Gabriel Vila.
+			// Linea subida en adempiere branch Develop para mostrar mensajes de error.
+			fireDataStatusEEvent("ATENCIÓN", e.getLocalizedMessage(), true);
+			// Xpande.
+
 			if (e instanceof ClassNotFoundException)
 				log.warning(m_tableName + " - " + e.getLocalizedMessage());
 			else
