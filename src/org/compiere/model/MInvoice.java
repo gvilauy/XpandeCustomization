@@ -2909,7 +2909,12 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 //					if (currRate.equals(Env.ZERO)) throw new AdempiereException(CFEMessages.TOTALES_111.replace("{{fecha}}", mInvoice.getDateInvoiced().toString()).replace("{{moneda}}", mCurrency.getISO_Code()));
 					///* 111 */ totales.setTpoCambio(currRate.setScale(3, BigDecimal.ROUND_HALF_UP));
 //				}
+				BigDecimal currencyRate = MConversionRate.getRate(this.getC_Currency_ID(), 142, this.getDateInvoiced(), 0, this.getAD_Client_ID(), 0);
+
+				if (currencyRate.equals(Env.ZERO)) throw new AdempiereException("CFEMessages.TOTALES_111");
+				totales.setTpoCambio(currencyRate.setScale(3, BigDecimal.ROUND_HALF_UP));
 			}
+
 		} catch (AdempiereException ex){
 			throw ex;
 		} catch (Exception ex){
@@ -3257,6 +3262,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		CAEDataType caeDataType = new CAEDataType();
 		objCfe.getEFact().setCAEData(caeDataType);
 
+		/*
 		if (esFactura){
 			caeDataType.setCAEID(new BigDecimal(90160029355.0).toBigInteger());
 			caeDataType.setDNro(new BigDecimal(2000001).toBigInteger());
@@ -3270,6 +3276,22 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			caeDataType.setHNro(new BigDecimal(1030000).toBigInteger());
 			caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2018-03-03 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
 		}
+		*/
+
+		if (esFactura){
+			caeDataType.setCAEID(new BigDecimal(90180136262.0).toBigInteger());
+			caeDataType.setDNro(new BigDecimal(1).toBigInteger());
+			caeDataType.setHNro(new BigDecimal(10000).toBigInteger());
+			caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2020-03-14 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+		}
+		else{
+			// Notas de credito
+			caeDataType.setCAEID(new BigDecimal(90180136270.0).toBigInteger());
+			caeDataType.setDNro(new BigDecimal(1).toBigInteger());
+			caeDataType.setHNro(new BigDecimal(5000).toBigInteger());
+			caeDataType.setFecVenc(Timestamp_to_XmlGregorianCalendar_OnlyDate(Timestamp.valueOf("2020-03-14 00:00:00"), false));//mDgiCae.getfechaVencimiento() Emi
+		}
+
 
 	}
 
