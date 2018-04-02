@@ -2862,8 +2862,8 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			/* 62.1*/ receptorFact.setDocRecep(docRecep);
 		}
 
-		/* 63  */ receptorTck.setRznSocRecep(partner.getName2());
-		/* 63  */ receptorFact.setRznSocRecep(partner.getName2());
+		/* 63  */ receptorTck.setRznSocRecep(partner.getName());
+		/* 63  */ receptorFact.setRznSocRecep(partner.getName());
 
 		MLocation location = (MLocation) partnerLocation.getC_Location();
 		String dirRecep="";
