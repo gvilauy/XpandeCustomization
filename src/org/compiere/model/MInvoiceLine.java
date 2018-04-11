@@ -481,6 +481,7 @@ public class MInvoiceLine extends X_C_InvoiceLine
 			else{
 
 				// Xpande. Gabriel Vila. Issue #5
+				// Considerar impuesto para Socio de Negocio Literal E.
 				// Conisiderar impuesto especial de Compra/Venta en producto en caso de existir.
 				// Se comenta código original.
 
@@ -490,11 +491,33 @@ public class MInvoiceLine extends X_C_InvoiceLine
 						((MTaxCategory) getProduct().getC_TaxCategory()).getDefaultTax().getC_Tax_ID(),
 						get_TrxName());
 				*/
-				MTaxCategory taxCategory = (MTaxCategory) getProduct().getC_TaxCategory();
-				if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
-					taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+
+				// Xpande. Gabriel Vila.
+				// Seteos de tasa de impuesto segun condiciones.
+				// Si el socio de negocio es literal E, entonces todos sus productos deben ir con la tasa de impuesto para Literal E
+				boolean esLiteralE = false;
+				int cBPartnerID = this.getParent().getC_BPartner_ID();
+				if (cBPartnerID > 0){
+					MBPartner partner = new MBPartner(getCtx(), cBPartnerID, null);
+					if (partner.get_ValueAsBoolean("LiteralE")){
+						esLiteralE = true;
+						// Obtengo ID de tasa de impuesto para Literal E desde coniguración comercial
+						String sql = " select coalesce(literale_tax_id,0) as literale_tax_id from z_comercialconfig where value ='General' ";
+						int taxLiteralE_ID = DB.getSQLValueEx(null, sql);
+						if (taxLiteralE_ID > 0){
+							stdTax = new MTax (getCtx(), taxLiteralE_ID, get_TrxName());
+						}
+					}
 				}
-				stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
+				// Si no es Literal E, para invoices compra/venta en Retail, puede suceder que el producto tenga un impuesto especial de compra/venta.
+				// Por lo tanto aca considero esta posibilidad.
+				if (!esLiteralE){
+					MTaxCategory taxCategory = (MTaxCategory) getProduct().getC_TaxCategory();
+					if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
+						taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+					}
+					stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
+				}
 				// Xpande. Issue #5
 			}
 
