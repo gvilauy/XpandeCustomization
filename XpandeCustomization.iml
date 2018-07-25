@@ -54,5 +54,7 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" exported="" name="lib11" level="project" />
+    <orderEntry type="library" exported="" name="lib7" level="project" />
   </component>
 </module>
