@@ -1570,6 +1570,13 @@ public class GridController extends CPanel
 					}
 					else{
 						vTable.setColumnVisibility(tc, true);
+						tc.setCellRenderer (new VCellRenderer (mField));
+						VCellEditor ce = new VCellEditor (mField);
+						tc.setCellEditor (ce);
+						//
+						tc.setHeaderValue (mField.getHeader ());
+						tc.setPreferredWidth (Math.max (mField.getDisplayLength (), 30));
+						tc.setHeaderRenderer (new VHeaderRenderer(mField));
 					}
 				}
 			}
@@ -1582,6 +1589,7 @@ public class GridController extends CPanel
 		splitPane.setDividerSize(0);
 		splitPane.setDividerLocation(0);
 
+		/*
 		//  Receive DataStatusChanged info from MTab
 		m_mTab.addDataStatusListener(this);
 		//  Receive vetoableChange info from MTable when saving
@@ -1590,6 +1598,7 @@ public class GridController extends CPanel
 		vTable.getSelectionModel().addListSelectionListener(this);
 		//  Navigation (RowChanged)
 		m_mTab.addPropertyChangeListener(vTable);
+		*/
 
 		//  Update UI
 		vTable.autoSize(true);
