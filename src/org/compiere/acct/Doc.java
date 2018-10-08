@@ -1287,6 +1287,10 @@ public abstract class Doc
 	/** GL Accounts - Commitment Offset	Sales */
 	public static final int     ACCTTYPE_CommitmentOffsetSales = 112;
 
+	// Xpande. Gabriel Vila. 08/10/2018.
+	// Nueva entradas contables.
+	public static final int 	ACCTYPE_MP_Emitidos = 500;
+	// Fin Xpande
 
 	/**
 	 *	Get the Valid Combination id for Accounting Schema
@@ -1490,6 +1494,21 @@ public abstract class Doc
 			sql = "SELECT CommitmentOffsetSales_Acct FROM C_AcctSchema_GL WHERE C_AcctSchema_ID=?";
 			para_1 = -1;
 		}
+
+		// Xpande. Gabriel Vila. 08/10/2018.
+		// Nuevas configuraciones contable
+		else if (AcctType == ACCTYPE_MP_Emitidos)
+		{
+			if (this.getC_Currency_ID() == as.getC_Currency_ID()){
+				sql = "SELECT MP_Emitidos_Acct FROM c_acctschema_default WHERE C_AcctSchema_ID=?";
+			}
+			else{
+				sql = "SELECT MP_Emitidos_Acct FROM z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID=?";
+			}
+			para_1 = -1;
+		}
+		// Fin Xpande
 
 		else
 		{
