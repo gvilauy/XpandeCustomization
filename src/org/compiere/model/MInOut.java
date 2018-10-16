@@ -19,6 +19,7 @@ package org.compiere.model;
 import org.adempiere.exceptions.AdempiereException;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
+import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
@@ -58,12 +59,53 @@ import java.util.logging.Level;
  * 			<a href="https://github.com/adempiere/adempiere/issues/887">
  * 			@see FR [ 887 ] System Config reversal invoice DocNo</a>
  */
-public class MInOut extends X_M_InOut implements DocAction
+public class MInOut extends X_M_InOut implements DocAction, DocOptions
 {
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = -239302197968535277L;
+
+	/***
+	 * Acciones de documentos customizadas.
+	 * Xpande. Created by Gabriel Vila on 10/16/18.
+	 * @param docStatus
+	 * @param processing
+	 * @param orderType
+	 * @param isSOTrx
+	 * @param AD_Table_ID
+	 * @param docAction
+	 * @param options
+	 * @param index
+	 * @return
+	 */
+	@Override
+	public int customizeValidActions(String docStatus, Object processing, String orderType, String isSOTrx, int AD_Table_ID, String[] docAction, String[] options, int index) {
+
+		int newIndex = 0;
+
+		if ((docStatus.equalsIgnoreCase(STATUS_Drafted))
+				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
+				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
+
+			//options[newIndex++] = DocumentEngine.ACTION_Prepare;
+			options[newIndex++] = DocumentEngine.ACTION_Complete;
+
+		}
+		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
+
+			// En inOuts, solo permito reactivar documentos de compra.
+			if (isSOTrx.equalsIgnoreCase("N")){
+				options[newIndex++] = DocumentEngine.ACTION_ReActivate;
+			}
+
+			// No tiene sentido anular en comprobantes de compra, porque se puede hacer lo mismo reactivandolo y eliminandolo.
+			// No es posible anular comprobantes de venta, debido a CFE.
+			//options[newIndex++] = DocumentEngine.ACTION_Void;
+		}
+
+		return newIndex;
+	} // Xpande.
 
 	/**
 	 * 	Create Shipment From Order
