@@ -34,6 +34,7 @@ import org.compiere.util.*;
 import org.eevolution.model.MPPProductBOM;
 import org.eevolution.model.MPPProductBOMLine;
 import org.xpande.cfe.model.MZCFERespuestaProvider;
+import org.xpande.cfe.utils.ProcesadorCFE;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
@@ -1995,7 +1996,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		// Xpande. Gabriel Vila.
 		// Cfe
 		if ((docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)) || (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARCreditMemo))){
-			this.cfe();
+
+			//this.cfe();
+
+			ProcesadorCFE procesadorCFE = new ProcesadorCFE(getCtx(), get_TrxName());
+			m_processMsg = procesadorCFE.executeCFE(this, this.getAD_Org_ID(), this.getC_DocTypeTarget_ID());
+			if (m_processMsg != null){
+				return DocAction.STATUS_Invalid;
+			}
 		}
 		// Xpande.
 
