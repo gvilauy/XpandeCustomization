@@ -1292,6 +1292,8 @@ public abstract class Doc
 	public static final int 	ACCTYPE_MP_Emitidos = 500;
 	public static final int 	ACCTYPE_MP_Recibidos = 501;
 	public static final int 	ACCTYPE_MP_Entregados = 502;
+	public static final int 	ACCTYPE_RT_RetencionEmitida = 503;
+	public static final int 	ACCTYPE_RT_RetencionRecibida = 504;
 	// Fin Xpande
 
 	/**
