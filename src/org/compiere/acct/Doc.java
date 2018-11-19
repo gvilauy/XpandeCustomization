@@ -1290,6 +1290,8 @@ public abstract class Doc
 	// Xpande. Gabriel Vila. 08/10/2018.
 	// Nueva entradas contables.
 	public static final int 	ACCTYPE_MP_Emitidos = 500;
+	public static final int 	ACCTYPE_MP_Recibidos = 501;
+	public static final int 	ACCTYPE_MP_Entregados = 502;
 	// Fin Xpande
 
 	/**
@@ -1310,6 +1312,11 @@ public abstract class Doc
 		int para_1 = 0;     //  first parameter (second is always AcctSchema)
 		String sql = null;
 
+		// Xpande. Gabriel Vila. 18/11/2018.
+		// Nueva variable para gestionar segunda consulta en caso que la primera no de resultados.
+		String sql2 = null;
+		// Fin Xpande.
+
 		/**	Account Type - Invoice */
 		if (AcctType == ACCTTYPE_Charge)	//	see getChargeAccount in DocLine
 		{
@@ -1329,6 +1336,14 @@ public abstract class Doc
 			//sql = "SELECT V_Liability_Acct FROM C_BP_Vendor_Acct WHERE C_BPartner_ID=? AND C_AcctSchema_ID=?";
 			sql = "SELECT V_Liability_Acct FROM C_BP_Vendor_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
+
+			if (getC_Currency_ID() == as.getC_Currency_ID()){
+				sql2 = " select V_Liability_Acct from c_acctschema_default where c_acctschema_id =?";
+			}
+			else{
+				sql2 = " select V_Liability_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID =?";
+			}
 			// Fin Xpande
 
 			para_1 = getC_BPartner_ID();
@@ -1340,13 +1355,36 @@ public abstract class Doc
 			//sql = "SELECT V_Liability_Services_Acct FROM C_BP_Vendor_Acct WHERE C_BPartner_ID=? AND C_AcctSchema_ID=?";
 			sql = "SELECT V_Liability_Services_Acct FROM C_BP_Vendor_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
+
+			if (getC_Currency_ID() == as.getC_Currency_ID()){
+				sql2 = " select V_Liability_Services_Acct from c_acctschema_default where c_acctschema_id =?";
+			}
+			else{
+				sql2 = " select V_Liability_Services_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID =?";
+			}
 			// Fin Xpande.
 
 			para_1 = getC_BPartner_ID();
 		}
 		else if (AcctType == ACCTTYPE_C_Receivable)
 		{
-			sql = "SELECT C_Receivable_Acct FROM C_BP_Customer_Acct WHERE C_BPartner_ID=? AND C_AcctSchema_ID=?";
+			// Xpande.
+			// Comento linea original y sustituyo.
+			//sql = "SELECT C_Receivable_Acct FROM C_BP_Customer_Acct WHERE C_BPartner_ID=? AND C_AcctSchema_ID=?";
+
+			sql = "SELECT C_Receivable_Acct FROM C_BP_Customer_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
+
+			if (getC_Currency_ID() == as.getC_Currency_ID()){
+				sql2 = " select C_Receivable_Acct from c_acctschema_default where c_acctschema_id =?";
+			}
+			else{
+				sql2 = " select C_Receivable_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID =?";
+			}
+			// Fin Xpande.
+
 			para_1 = getC_BPartner_ID();
 		}
 		else if (AcctType == ACCTTYPE_C_Receivable_Services)
@@ -1361,6 +1399,14 @@ public abstract class Doc
 			//sql = "SELECT V_Prepayment_Acct FROM C_BP_Vendor_Acct WHERE C_BPartner_ID=? AND C_AcctSchema_ID=?";
 			sql = "SELECT V_Prepayment_Acct FROM C_BP_Vendor_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
+
+			if (getC_Currency_ID() == as.getC_Currency_ID()){
+				sql2 = " select V_Prepayment_Acct from c_acctschema_default where c_acctschema_id =?";
+			}
+			else{
+				sql2 = " select V_Prepayment_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID =?";
+			}
 			// Fin Xpande.
 
 			para_1 = getC_BPartner_ID();
@@ -1497,6 +1543,7 @@ public abstract class Doc
 
 		// Xpande. Gabriel Vila. 08/10/2018.
 		// Nuevas configuraciones contable
+		// Medios de Pago
 		else if (AcctType == ACCTYPE_MP_Emitidos)
 		{
 			if (this.getC_Currency_ID() == as.getC_Currency_ID()){
@@ -1539,6 +1586,26 @@ public abstract class Doc
 			rs = pstmt.executeQuery();
 			if (rs.next())
 				Account_ID = rs.getInt(1);
+
+			// Xpande. Gabriel Vila. 18/11/2018.
+			// Agrego else para segunda consulta, en caso que la primera no tire resultados
+			else{
+				if (sql2 != null){
+
+					DB.close(rs, pstmt);
+					rs = null; pstmt = null;
+
+					pstmt = DB.prepareStatement (sql2, null);
+					pstmt.setInt(1, as.getC_AcctSchema_ID());
+
+					rs = pstmt.executeQuery ();
+					if (rs.next()){
+						Account_ID = rs.getInt(1);
+					}
+				}
+			}
+			// Fin Xpande
+
 		}
 		catch (SQLException e)
 		{
