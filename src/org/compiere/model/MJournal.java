@@ -18,6 +18,7 @@ package org.compiere.model;
 
 import org.adempiere.exceptions.AdempiereException;
 import org.compiere.process.DocAction;
+import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -51,12 +52,49 @@ import java.util.logging.Level;
  * 			<a href="https://github.com/adempiere/adempiere/issues/887">
  * 			@see FR [ 887 ] System Config reversal invoice DocNo</a>
  */
-public class MJournal extends X_GL_Journal implements DocAction
-{
+public class MJournal extends X_GL_Journal implements DocAction, DocOptions {
+
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = -364132249042527640L;
+
+
+	/***
+	 * Actiones de documentos customizadas.
+	 * Xpande. Created by Gabriel Vila on 11/23/18.
+	 * @param docStatus
+	 * @param processing
+	 * @param orderType
+	 * @param isSOTrx
+	 * @param AD_Table_ID
+	 * @param docAction
+	 * @param options
+	 * @param index
+	 * @return
+	 */
+	@Override
+	public int customizeValidActions(String docStatus, Object processing, String orderType, String isSOTrx, int AD_Table_ID, String[] docAction, String[] options, int index) {
+
+		int newIndex = 0;
+
+		if ((docStatus.equalsIgnoreCase(STATUS_Drafted))
+				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
+				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
+
+			options[newIndex++] = DocumentEngine.ACTION_Complete;
+
+		}
+		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
+
+			options[newIndex++] = DocumentEngine.ACTION_ReActivate;
+			options[newIndex++] = DocumentEngine.ACTION_Void;
+		}
+
+		return newIndex;
+
+	} // Xpande.
+
 
 	/**
 	 * 	Standard Constructor
@@ -645,6 +683,10 @@ public class MJournal extends X_GL_Journal implements DocAction
 	 */
 	public boolean voidIt()
 	{
+		// Xpande. Gabriel Vila. 23/11/2018.
+		// Comento codigo original y sustituyo.
+
+		/*
 		log.info(toString());
 		// Before Void
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_VOID);
@@ -668,6 +710,32 @@ public class MJournal extends X_GL_Journal implements DocAction
 			return false;
 		
 		return ok_to_void;
+
+		*/
+
+		log.info("voidIt - " + toString());
+
+		// Before Void
+		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_VOID);
+		if (m_processMsg != null)
+			return false;
+
+		MPeriod.testPeriodOpen(getCtx(), getDateAcct(), getC_DocType_ID(), getAD_Org_ID());
+		MFactAcct.deleteEx(MJournal.Table_ID, get_ID(), get_TrxName());
+
+		// After Void
+		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_VOID);
+		if (m_processMsg != null)
+			return false;
+
+		this.setProcessed(true);
+		this.setDocStatus(DOCSTATUS_Voided);
+		this.setDocAction(DOCACTION_None);
+
+		return true;
+
+		// Fin Xpande.
+
 	}	//	voidIt
 	
 	/**
@@ -838,6 +906,10 @@ public class MJournal extends X_GL_Journal implements DocAction
 	 */
 	public boolean reActivateIt()
 	{
+		// XPande. Gabriel Vila. 23/11/2018.
+		// Cambios Varios para la reactivacion.
+
+
 		log.info(toString());
 		// Before reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_REACTIVATE);
@@ -847,16 +919,22 @@ public class MJournal extends X_GL_Journal implements DocAction
 		// teo_sarca - FR [ 1776045 ] Add ReActivate action to GL Journal
 		MPeriod.testPeriodOpen(getCtx(), getDateAcct(), getC_DocType_ID(), getAD_Org_ID());
 		MFactAcct.deleteEx(MJournal.Table_ID, get_ID(), get_TrxName());
-		setPosted(false);
-		setProcessed(false);
-		setDocAction(DOCACTION_Complete);
-		
+
 		// After reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_REACTIVATE);
 		if (m_processMsg != null)
 			return false;
-		
+
+		// Xpande. Gabriel Vila. 03/08/2017. Issue #2.
+		// Me aseguro estados de documento al reactivar
+		this.setProcessed(false);
+		this.setPosted(false);
+		this.setDocStatus(DOCSTATUS_InProgress);
+		this.setDocAction(DOCACTION_Complete);
+		// Fin Xpande
+
 		return true;
+
 	}	//	reActivateIt
 	
 	

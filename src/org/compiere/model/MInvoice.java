@@ -2395,6 +2395,9 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (m_processMsg != null)
 			return false;
 
+		MPeriod.testPeriodOpen(getCtx(), this.getDateAcct(), this.getC_DocTypeTarget_ID(), this.getAD_Org_ID());
+		MFactAcct.deleteEx(this.get_Table_ID(), this.get_ID(), get_TrxName());
+
 		// After reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_REACTIVATE);
 		if (m_processMsg != null)
