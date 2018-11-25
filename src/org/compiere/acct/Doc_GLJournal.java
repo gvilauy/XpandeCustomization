@@ -24,6 +24,7 @@ import org.compiere.util.Env;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.logging.Level;
 
@@ -197,7 +198,27 @@ public class Doc_GLJournal extends Doc
 							p_lines[i].getAmtSourceDr (),
 							p_lines[i].getAmtSourceCr ());
 
+					if (line != null){
+
+						// Instancio modelo de linea de asiento manual
+						MJournalLine journalLine = new MJournalLine(getCtx(), p_lines[i].get_ID(), this.getTrxName());
+						if ((journalLine != null) && (journalLine.get_ID() > 0)){
+
+							// Si tengo fecha de vencimiento, la seteo en la linea de asiento
+							Timestamp dueDate = (Timestamp) journalLine.get_Value("DueDate");
+							if (dueDate != null){
+								line.set_ValueOfColumn("DueDate", dueDate);
+							}
+
+							// Si tengo tasa de cambio, la seteo en la linea del asiento
+							BigDecimal currencyRate = journalLine.getCurrencyRate();
+							if ((currencyRate != null) && (currencyRate.compareTo(Env.ZERO) > 0)){
+								line.set_ValueOfColumn("CurrencyRate", currencyRate);
+							}
+						}
+					}
 					// Fin Xpande
+
 				}
 			}	//	for all lines
 		}
