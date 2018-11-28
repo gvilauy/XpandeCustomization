@@ -112,13 +112,9 @@ public class Doc_Invoice extends Doc
 	/***
 	 * Crea lineas de asiento, según lineas de asiento manual ingresadas por el usuario en este documento.
 	 * Xpande. Created by Gabriel Vila on 11/28/18.
-	 * @param fact
 	 * @param as
-	 * @return
 	 */
-	private ArrayList<Fact> createFactsAsientoManual (Fact fact, MAcctSchema as) {
-
-		ArrayList<Fact> facts = new ArrayList<Fact>();
+	private void createFactsAsientoManual (Fact fact, MAcctSchema as) {
 
 		String sql = "";
 		PreparedStatement pstmt = null;
@@ -145,8 +141,6 @@ public class Doc_Invoice extends Doc
 			rs = null; pstmt = null;
 		}
 
-		facts.add(fact);
-		return facts;
 	}
 
 	/**
@@ -305,35 +299,36 @@ public class Doc_Invoice extends Doc
 		BigDecimal retValue = Env.ZERO;
 		StringBuffer sb = new StringBuffer (" [");
 
-
-		// Xpande. Gabriel Vila. 28/11/2018.
-		// Verifico asiento balanceado según tengo en true el flag de asiento manual o no
-		if (this.doAsientoManual){
-			retValue = this.getBalanceAsientoManual();
-			sb.append("]");
-			log.fine(toString() + " Balance=" + retValue + sb.toString());
-			return retValue;
-		}
-		// Fin Xpande
-
 		//  Total
 		retValue = retValue.add(getAmount(Doc.AMTTYPE_Gross));
 		sb.append(getAmount(Doc.AMTTYPE_Gross));
 		//  - Header Charge
 		retValue = retValue.subtract(getAmount(Doc.AMTTYPE_Charge));
 		sb.append("-").append(getAmount(Doc.AMTTYPE_Charge));
-		//  - Tax
-		for (int i = 0; i < m_taxes.length; i++)
-		{
-			retValue = retValue.subtract(m_taxes[i].getAmount());
-			sb.append("-").append(m_taxes[i].getAmount());
+
+		// Xpande. Gabriel Vila. 28/11/2018.
+		// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
+		// Agrego el IF y le meto dentro el codigo original de ADempiere
+		if (!this.doAsientoManual){
+			//  - Tax
+			for (int i = 0; i < m_taxes.length; i++)
+			{
+				retValue = retValue.subtract(m_taxes[i].getAmount());
+				sb.append("-").append(m_taxes[i].getAmount());
+			}
+			//  - Lines
+			for (int i = 0; i < p_lines.length; i++)
+			{
+				retValue = retValue.subtract(p_lines[i].getAmtSource());
+				sb.append("-").append(p_lines[i].getAmtSource());
+			}
 		}
-		//  - Lines
-		for (int i = 0; i < p_lines.length; i++)
-		{
-			retValue = retValue.subtract(p_lines[i].getAmtSource());
-			sb.append("-").append(p_lines[i].getAmtSource());
+		else{
+			// Considero lineas de asiento manual para el balanceo
+			retValue = retValue.subtract(this.getBalanceAsientoManual());
 		}
+		// Fin Xpande.
+
 		sb.append("]");
 		//
 		log.fine(toString() + " Balance=" + retValue + sb.toString());
@@ -381,13 +376,6 @@ public class Doc_Invoice extends Doc
 		//  Cash based accounting
 		if (!as.isAccrual())
 			return facts;
-
-		// Xpande. Gabriel Vila. 28/11/2018.
-		// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
-		if (this.doAsientoManual){
-			return this.createFactsAsientoManual(fact, as);
-		}
-		// Fin Xpande.
 
 		//  ** ARI, ARF
 		if (getDocumentType().equals(DOCTYPE_ARInvoice) 
@@ -561,83 +549,96 @@ public class Doc_Invoice extends Doc
 			//  Charge          DR
 			fact.createLine(null, getAccount(Doc.ACCTTYPE_Charge, as),
 				getC_Currency_ID(), getAmount(Doc.AMTTYPE_Charge), null);
-			//  TaxCredit       DR
-			for (int i = 0; i < m_taxes.length; i++)
-			{
-				FactLine tl;
-				if (m_taxes[i].getRate().signum() >= 0)
-					tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount(), null);
-				else
-					tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(),  null , m_taxes[i].getAmount().negate());
 
-				if (tl != null)
-					tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
-			}
-			//  Expense         DR
-			for (int i = 0; i < p_lines.length; i++)
-			{
-				DocLine line = p_lines[i];
-				boolean landedCost = landedCost(as, fact, line, true);
-				if (landedCost && as.isExplicitCostAdjustment())
+			// Xpande. Gabriel Vila. 28/11/2018.
+			// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
+			// Agrego el IF y le meto dentro el codigo original de ADempiere
+			if (!this.doAsientoManual){
+
+				//  TaxCredit       DR
+				for (int i = 0; i < m_taxes.length; i++)
 				{
-					fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-						getC_Currency_ID(), line.getAmtSource(), null);
-					//
-					FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-						getC_Currency_ID(), null, line.getAmtSource());
-					String desc = line.getDescription();
-					if (desc == null)
-						desc = "100%";
+					FactLine tl;
+					if (m_taxes[i].getRate().signum() >= 0)
+						tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount(), null);
 					else
-						desc += " 100%";
-					fl.setDescription(desc);
+						tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(),  null , m_taxes[i].getAmount().negate());
+
+					if (tl != null)
+						tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
 				}
-				if (!landedCost)
+				//  Expense         DR
+				for (int i = 0; i < p_lines.length; i++)
 				{
-					MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
-					if (line.isItem())
-						expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
-					BigDecimal amt = line.getAmtSource();
-					BigDecimal dAmt = null;
-					if (as.isTradeDiscountPosted() && !line.isItem())
+					DocLine line = p_lines[i];
+					boolean landedCost = landedCost(as, fact, line, true);
+					if (landedCost && as.isExplicitCostAdjustment())
 					{
-						BigDecimal discount = line.getDiscount();
-						if (discount != null && discount.signum() != 0)
+						fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+								getC_Currency_ID(), line.getAmtSource(), null);
+						//
+						FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+								getC_Currency_ID(), null, line.getAmtSource());
+						String desc = line.getDescription();
+						if (desc == null)
+							desc = "100%";
+						else
+							desc += " 100%";
+						fl.setDescription(desc);
+					}
+					if (!landedCost)
+					{
+						MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
+						if (line.isItem())
+							expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
+						BigDecimal amt = line.getAmtSource();
+						BigDecimal dAmt = null;
+						if (as.isTradeDiscountPosted() && !line.isItem())
 						{
-							amt = amt.add(discount);
-							dAmt = discount;
-							MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
-							fact.createLine (line, tradeDiscountReceived,
-									getC_Currency_ID(), null, dAmt);
+							BigDecimal discount = line.getDiscount();
+							if (discount != null && discount.signum() != 0)
+							{
+								amt = amt.add(discount);
+								dAmt = discount;
+								MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
+								fact.createLine (line, tradeDiscountReceived,
+										getC_Currency_ID(), null, dAmt);
+							}
 						}
-					}
-					fact.createLine (line, expense,
-						getC_Currency_ID(), amt, null);
-					if (!line.isItem())
-					{
-						grossAmt = grossAmt.subtract(amt);
-						serviceAmt = serviceAmt.add(amt);
-					}
-					//
+						fact.createLine (line, expense,
+								getC_Currency_ID(), amt, null);
+						if (!line.isItem())
+						{
+							grossAmt = grossAmt.subtract(amt);
+							serviceAmt = serviceAmt.add(amt);
+						}
+						//
 					/*if (line.getM_Product_ID() != 0
 						&& line.getProduct().isService())	//	otherwise Inv Matching
-						MCostDetail.createInvoice(as, line.getAD_Org_ID(), 
+						MCostDetail.createInvoice(as, line.getAD_Org_ID(),
 							line.getM_Product_ID(), line.getM_AttributeSetInstance_ID(),
 							line.get_ID(), 0,		//	No Cost Element
 							line.getAmtSource(), line.getQty(),
 							line.getDescription(), getTrxName());*/
+					}
 				}
-			}
-			//  Set Locations
-			FactLine[] fLines = fact.getLines();
-			for (int i = 0; i < fLines.length; i++)
-			{
-				if (fLines[i] != null)
+				//  Set Locations
+				FactLine[] fLines = fact.getLines();
+				for (int i = 0; i < fLines.length; i++)
 				{
-					fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
- 						fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+					if (fLines[i] != null)
+					{
+						fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
+						fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+					}
 				}
+
 			}
+			else{
+				// Hago el asiento manual para sustiuir impuestos y lineas del documento.
+				this.createFactsAsientoManual(fact, as);
+			}
+			// Fin Xpande.
 
 			//  Liability               CR
 			int payables_ID = getValidCombination_ID (Doc.ACCTTYPE_V_Liability, as);
@@ -671,83 +672,95 @@ public class Doc_Invoice extends Doc
 			//  Charge                  CR
 			fact.createLine (null, getAccount(Doc.ACCTTYPE_Charge, as),
 				getC_Currency_ID(), null, getAmount(Doc.AMTTYPE_Charge));
-			//  TaxCredit               CR
-			for (int i = 0; i < m_taxes.length; i++)
-			{
-				FactLine tl;
-				if (m_taxes[i].getRate().signum() >= 0)
-					tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), null, m_taxes[i].getAmount());
-				else
-					tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount().negate(),null);
 
-				if (tl != null)
-					tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
-			}
-			//  Expense                 CR
-			for (int i = 0; i < p_lines.length; i++)
-			{
-				DocLine line = p_lines[i];
-				boolean landedCost = landedCost(as, fact, line, false);
-				if (landedCost && as.isExplicitCostAdjustment())
+			// Xpande. Gabriel Vila. 28/11/2018.
+			// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
+			// Agrego el IF y le meto dentro el codigo original de ADempiere
+			if (!this.doAsientoManual){
+				//  TaxCredit               CR
+				for (int i = 0; i < m_taxes.length; i++)
 				{
-					fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-						getC_Currency_ID(), null, line.getAmtSource());
-					//
-					FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-						getC_Currency_ID(), line.getAmtSource(), null);
-					String desc = line.getDescription();
-					if (desc == null)
-						desc = "100%";
+					FactLine tl;
+					if (m_taxes[i].getRate().signum() >= 0)
+						tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), null, m_taxes[i].getAmount());
 					else
-						desc += " 100%";
-					fl.setDescription(desc);
+						tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount().negate(),null);
+
+					if (tl != null)
+						tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
 				}
-				if (!landedCost)
+				//  Expense                 CR
+				for (int i = 0; i < p_lines.length; i++)
 				{
-					MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
-					if (line.isItem())
-						expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
-					BigDecimal amt = line.getAmtSource();
-					BigDecimal dAmt = null;
-					if (as.isTradeDiscountPosted() && !line.isItem())
+					DocLine line = p_lines[i];
+					boolean landedCost = landedCost(as, fact, line, false);
+					if (landedCost && as.isExplicitCostAdjustment())
 					{
-						BigDecimal discount = line.getDiscount();
-						if (discount != null && discount.signum() != 0)
+						fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+								getC_Currency_ID(), null, line.getAmtSource());
+						//
+						FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+								getC_Currency_ID(), line.getAmtSource(), null);
+						String desc = line.getDescription();
+						if (desc == null)
+							desc = "100%";
+						else
+							desc += " 100%";
+						fl.setDescription(desc);
+					}
+					if (!landedCost)
+					{
+						MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
+						if (line.isItem())
+							expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
+						BigDecimal amt = line.getAmtSource();
+						BigDecimal dAmt = null;
+						if (as.isTradeDiscountPosted() && !line.isItem())
 						{
-							amt = amt.add(discount);
-							dAmt = discount;
-							MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
-							fact.createLine (line, tradeDiscountReceived,
-									getC_Currency_ID(), dAmt, null);
+							BigDecimal discount = line.getDiscount();
+							if (discount != null && discount.signum() != 0)
+							{
+								amt = amt.add(discount);
+								dAmt = discount;
+								MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
+								fact.createLine (line, tradeDiscountReceived,
+										getC_Currency_ID(), dAmt, null);
+							}
 						}
-					}
-					fact.createLine (line, expense,
-						getC_Currency_ID(), null, amt);
-					if (!line.isItem())
-					{
-						grossAmt = grossAmt.subtract(amt);
-						serviceAmt = serviceAmt.add(amt);
-					}
-					//
+						fact.createLine (line, expense,
+								getC_Currency_ID(), null, amt);
+						if (!line.isItem())
+						{
+							grossAmt = grossAmt.subtract(amt);
+							serviceAmt = serviceAmt.add(amt);
+						}
+						//
 					/*if (line.getM_Product_ID() != 0
 						&& line.getProduct().isService())	//	otherwise Inv Matching
-						MCostDetail.createInvoice(as, line.getAD_Org_ID(), 
+						MCostDetail.createInvoice(as, line.getAD_Org_ID(),
 							line.getM_Product_ID(), line.getM_AttributeSetInstance_ID(),
 							line.get_ID(), 0,		//	No Cost Element
 							line.getAmtSource().negate(), line.getQty(),
 							line.getDescription(), getTrxName());*/
+					}
 				}
-			}
-			//  Set Locations
-			FactLine[] fLines = fact.getLines();
-			for (int i = 0; i < fLines.length; i++)
-			{
-				if (fLines[i] != null)
+				//  Set Locations
+				FactLine[] fLines = fact.getLines();
+				for (int i = 0; i < fLines.length; i++)
 				{
-					fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
-					fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+					if (fLines[i] != null)
+					{
+						fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
+						fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+					}
 				}
 			}
+			else{
+				// Hago el asiento manual para sustiuir impuestos y lineas del documento.
+				this.createFactsAsientoManual(fact, as);
+			}
+			// Fin Xpande.
+
 			//  Liability       DR
 			int payables_ID = getValidCombination_ID (Doc.ACCTTYPE_V_Liability, as);
 			int payablesServices_ID = getValidCombination_ID (Doc.ACCTTYPE_V_Liability_Services, as);
