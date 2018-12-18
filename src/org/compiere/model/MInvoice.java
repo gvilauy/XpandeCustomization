@@ -207,7 +207,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			to.setC_Order_ID(0);
 		if (counter)
 		{
-			to.setRef_Invoice_ID(from.getC_Invoice_ID());
+			// Xpande. Gabriel Vila. 14/12/2018.
+			// Comento la referencia que hace ADempiere entre la invoice origen y destino, ya que luego de problemas si se quiere
+			// eliminar la invoice origen
+
+			//to.setRef_Invoice_ID(from.getC_Invoice_ID());
+
+			// Fin Xpande.
+
 			//	Try to find Order link
 			if (from.getC_Order_ID() != 0)
 			{
@@ -777,7 +784,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			//
 			if (counter)
 			{
-				line.setRef_InvoiceLine_ID(fromLine.getC_InvoiceLine_ID());
+				// Xpande. Gabriel Vila. 14/12/2018.
+				// Comento la referencia que hace ADempiere entre la invoice origen y destino, ya que luego de problemas si se quiere
+				// eliminar la invoice origen
+
+				//line.setRef_InvoiceLine_ID(fromLine.getC_InvoiceLine_ID());
+
+				// Fin Xpande.
+
 				if (fromLine.getC_OrderLine_ID() != 0)
 				{
 					MOrderLine peer = new MOrderLine (getCtx(), fromLine.getC_OrderLine_ID(), get_TrxName());
