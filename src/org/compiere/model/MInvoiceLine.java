@@ -908,7 +908,13 @@ public class MInvoiceLine extends X_C_InvoiceLine
 		if (tax != null) {
 			if (!tax.calculateTaxFromLines())
 				return false;
-		
+
+			// Xpande. Gabriel Vila. 02/01/2019.
+			// Para el formulario 2181 de DGI, tengo que declara los impuestos excentos, esto lleva a que necesito que aunque no tenga
+			// tasa de impuesto ( = 0) tengo que tener los registros en la tabla c_invoicetax.
+			// Por esta razón tengo que comentar estas lineas y sustituir.
+
+			/*
 			// red1 - solving BUGS #[ 1701331 ] , #[ 1786103 ]
 			if (tax.getTaxAmt().signum() != 0) {
 				if (!tax.save(get_TrxName()))
@@ -918,6 +924,23 @@ public class MInvoiceLine extends X_C_InvoiceLine
 				if (!tax.is_new() && !tax.delete(false, get_TrxName()))
 					return false;
 			}
+			*/
+
+			if (tax.getTaxAmt().signum() != 0) {
+				if (!tax.save(get_TrxName()))
+					return false;
+			}
+			else {
+				if (!tax.is_new() && !tax.delete(false, get_TrxName()))
+					return false;
+				else{
+					if (!tax.save(get_TrxName()))
+						return false;
+				}
+			}
+
+			// Fin Xpande.
+
 		}
 		return true;
 	}
