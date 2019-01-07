@@ -2008,10 +2008,10 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			info.append(" - @CounterDoc@: @C_Invoice_ID@=").append(counter.getDocumentNo());
 
 		// Xpande. Gabriel Vila.
-		// Cfe
+		// Facturación Electrónica y actualización en estado de cuenta.
 		if ((docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARInvoice)) || (docBaseType.equalsIgnoreCase(MDocType.DOCBASETYPE_ARCreditMemo))){
 
-			//this.cfe();
+			this.updateEstadoCuenta();
 
 			ProcesadorCFE procesadorCFE = new ProcesadorCFE(getCtx(), get_TrxName());
 			m_processMsg = procesadorCFE.executeCFE(this, this.getAD_Org_ID(), this.getC_DocTypeTarget_ID());
@@ -2019,7 +2019,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				return DocAction.STATUS_Invalid;
 			}
 		}
-		// Xpande.
+		// Fin Xpande.
 
 		m_processMsg = info.toString().trim();
 		setProcessed(true);
@@ -3555,5 +3555,29 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 	}
 
+	/***
+	 * Actualiza información para este Invoice en las estructuras de Estado de Cuenta
+	 * Xpande. Created by Gabriel Vila on 1/7/19.
+	 */
+	private void updateEstadoCuenta(){
+
+		String action = "";
+
+		try{
+
+			// No aplica a comprobantes de compra.
+			if (!this.isSOTrx()){
+				return;
+			}
+
+			action = " update z_estadocuenta set documentnoref ='" + this.getDocumentNo() + "' " +
+					 " where c_invoice_id =" + this.get_ID();
+			DB.executeUpdateEx(action, get_TrxName());
+
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+	}
 
 }	//	MInvoice
