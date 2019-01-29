@@ -2579,6 +2579,37 @@ public class MOrder extends X_C_Order implements DocAction
 			}
 			*/
 
+			// Actualizo cantidad entregada de cada linea de esta orden segun lineas de esta entrega.
+			MInOutLine[] inOutLines = ship.getLines(true);
+			for (int j = 0; j < inOutLines.length; j++){
+
+				MInOutLine inOutLine = inOutLines[j];
+
+				if (inOutLine.getC_OrderLine_ID() <= 0){
+					continue;
+				}
+
+				MOrderLine orderLine = (MOrderLine) inOutLine.getC_OrderLine();
+				if ((orderLine == null) || (orderLine.get_ID() <= 0)){
+					continue;
+				}
+
+				BigDecimal qtyDelivered = inOutLine.getMovementQty();
+				if (qtyDelivered == null) qtyDelivered = Env.ZERO;
+
+				if (orderLine.getQtyDelivered() != null){
+					qtyDelivered = orderLine.getQtyDelivered().subtract(qtyDelivered);
+					if (qtyDelivered.compareTo(Env.ZERO) < 0){
+						qtyDelivered = Env.ZERO;
+					}
+				}
+				else{
+					qtyDelivered = Env.ZERO;
+				}
+				orderLine.setQtyDelivered(Env.ZERO);
+				orderLine.saveEx();
+			}
+
 			ship.setDocStatus(MInOut.DOCSTATUS_Voided);
 			ship.setDocAction(DocAction.ACTION_None);
 			ship.saveEx(get_TrxName());

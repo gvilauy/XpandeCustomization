@@ -3578,6 +3578,11 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 					" where c_invoice_id =" + this.get_ID();
 			DB.executeUpdateEx(action, get_TrxName());
 
+			action = " update z_invoiceafectacion set documentnoref ='" + this.getDocumentNo() + "' " +
+					" where ref_invoice_id =" + this.get_ID();
+			DB.executeUpdateEx(action, get_TrxName());
+
+
 		}
 		catch (Exception e){
 		    throw new AdempiereException(e);
