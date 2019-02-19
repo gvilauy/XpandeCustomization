@@ -171,6 +171,14 @@ public class MInvoiceLine extends X_C_InvoiceLine
 		m_C_BPartner_Location_ID = invoice.getC_BPartner_Location_ID();
 		m_IsSOTrx = invoice.isSOTrx();
 		m_precision = new Integer(invoice.getPrecision());
+
+		// Xpande. Gabriel Vila. 19/02/2019.
+		// Si este linea viene por seleccion tomo dos decimales como precision.
+		if (this.get_ValueAsBoolean("IsBySelection")){
+			m_precision = 2;
+		}
+		// Fin Xpande.
+
 	}	//	setOrder
 
 	/**
