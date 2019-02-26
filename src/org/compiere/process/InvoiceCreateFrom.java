@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.adempiere.exceptions.AdempiereException;
+import org.compiere.acct.Doc;
 import org.compiere.model.*;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -130,6 +131,15 @@ public class InvoiceCreateFrom extends InvoiceCreateFromAbstract {
 				//	Reset
 				invoiceLine.setC_OrderLine_ID(0);
 				invoiceLine.setRef_InvoiceLine_ID(0);
+
+				// Xpande. Gabriel Vila. 26/02/2018.
+				// Para comprobantes de venta, guardo referencia de lineas
+				// Esto es para luego poder enviar Referencias de Facturas en Nota de Credito de Venta en el CFE.
+				if (invoice.isSOTrx()){
+					invoiceLine.setRef_InvoiceLine_ID(fromLine.get_ID());
+				}
+				// Fin Xpande.
+
 				invoiceLine.setM_InOutLine_ID(0);
 				invoiceLine.setA_Asset_ID(0);
 				invoiceLine.setM_AttributeSetInstance_ID(0);
