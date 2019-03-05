@@ -2299,8 +2299,7 @@ public class MOrder extends X_C_Order implements DocAction
 		// Before reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_REACTIVATE);
 		if (m_processMsg != null)
-			return false;	
-				
+			return false;
 		
 		
 		MDocType dt = MDocType.get(getCtx(), getC_DocType_ID());
@@ -2347,6 +2346,11 @@ public class MOrder extends X_C_Order implements DocAction
 			if (!voidLinkedDocuments()){
 				return false;
 			}
+
+			// Elimino info de costos asociada a cada linea de esta orden
+			String action = " delete from m_costdetail where c_orderline_id in " +
+					" (select c_orderline_id from c_orderline where c_order_id =" + this.get_ID() + ") ";
+			DB.executeUpdateEx(action, get_TrxName());
 
 			// Fin Xpande.
 

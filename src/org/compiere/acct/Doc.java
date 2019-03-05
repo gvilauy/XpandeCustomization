@@ -1586,12 +1586,13 @@ public abstract class Doc
 				pstmt.setInt (2, as.getC_AcctSchema_ID());
 			}
 			rs = pstmt.executeQuery();
-			if (rs.next())
+			if (rs.next()){
 				Account_ID = rs.getInt(1);
+			}
 
 			// Xpande. Gabriel Vila. 18/11/2018.
-			// Agrego else para segunda consulta, en caso que la primera no tire resultados
-			else{
+			// Si sigo sin tener cuenta, ejecuto segunda consulta.
+			if (Account_ID <= 0){
 				if (sql2 != null){
 
 					DB.close(rs, pstmt);

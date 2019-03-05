@@ -1129,7 +1129,17 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 	@Override
 	public void setM_PriceList_ID (int M_PriceList_ID)
 	{
-		MPriceList pl = MPriceList.get(getCtx(), M_PriceList_ID, null);
+
+		// Xpande. Gabriel Vila. 01/03/2019.
+		// Comento linea de instanciación de lista de precios ya que tiene trxname = null y a veces la lista
+		// se creó en la misma transacción, por lo cual este metodo falla.
+		// Sustituyo.
+
+		//MPriceList pl = MPriceList.get(getCtx(), M_PriceList_ID, null);
+		MPriceList pl = MPriceList.get(getCtx(), M_PriceList_ID, get_TrxName());
+
+		// Fin Xpande.
+
 		if (pl != null) {
 			setC_Currency_ID(pl.getC_Currency_ID());
 			super.setM_PriceList_ID(M_PriceList_ID);
