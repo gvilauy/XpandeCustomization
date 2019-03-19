@@ -113,10 +113,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		}
 		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
 
+			/*
 			// En invoices, solo permito reactivar comprobantes de compra.
 			if (isSOTrx.equalsIgnoreCase("N")){
 				options[newIndex++] = DocumentEngine.ACTION_ReActivate;
 			}
+			*/
+
+			options[newIndex++] = DocumentEngine.ACTION_ReActivate;
 
 			// No tiene sentido anular en comprobantes de compra, porque se puede hacer lo mismo reactivandolo y eliminandolo.
 			// No es posible anular comprobantes de venta, debido a CFE.
