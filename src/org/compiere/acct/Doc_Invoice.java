@@ -558,6 +558,18 @@ public class Doc_Invoice extends Doc
 				//  TaxCredit       DR
 				for (int i = 0; i < m_taxes.length; i++)
 				{
+					// Xpande. Gabriel Vila. 21/03/2019.
+					// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+					MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
+					if ((accountTax == null) || (accountTax.get_ID() <= 0)){
+						p_Error = "No se obtuvo cuenta contable de compra para impuesto : " + m_taxes[i].getName();
+						log.log(Level.SEVERE, p_Error);
+						fact = null;
+						facts.add(fact);
+						return facts;
+					}
+					// Fin Xpande
+
 					FactLine tl;
 					if (m_taxes[i].getRate().signum() >= 0)
 						tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount(), null);
@@ -591,6 +603,31 @@ public class Doc_Invoice extends Doc
 						MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
 						if (line.isItem())
 							expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
+
+						// Xpande. Gabriel Vila. 21/03/2019.
+						// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+						if ((expense == null) || (expense.get_ID() <= 0)){
+							String msgCta = "P_Expense_Acct";
+							String msgProd = "";
+							if (line.isItem()){
+								msgCta = "P_InventoryClearing_Acct";
+							}
+							if (line.getM_Product_ID() > 0){
+								MProduct product = new MProduct(getCtx(), line.getM_Product_ID(), null);
+								msgProd = "Producto : " + product.getValue() + " - " + product.getName();
+							}
+							else if(line.getC_Charge_ID() > 0){
+								MCharge charge = new MCharge(getCtx(), line.getC_Charge_ID(), null);
+								msgProd = "Cargo : " + charge.getName();
+							}
+							p_Error = "No se obtuvo cuenta contable de compra (" + msgCta + "). " + msgProd;
+							log.log(Level.SEVERE, p_Error);
+							fact = null;
+							facts.add(fact);
+							return facts;
+						}
+						// Fin Xpande
+
 						BigDecimal amt = line.getAmtSource();
 						BigDecimal dAmt = null;
 						if (as.isTradeDiscountPosted() && !line.isItem())
@@ -654,12 +691,42 @@ public class Doc_Invoice extends Doc
 				serviceAmt = getAmount(Doc.AMTTYPE_Gross);
 				grossAmt = Env.ZERO;
 			}
-			if (grossAmt.signum() != 0)
+			if (grossAmt.signum() != 0){
+
+				// Xpande. Gabriel Vila. 21/03/2019.
+				// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+				MAccount acctBP = MAccount.get(getCtx(), payables_ID);
+				if ((acctBP == null) || (acctBP.get_ID() <= 0)){
+					p_Error = "No se obtuvo cuenta contable de compra (V_Liability_Acct) para el Socio de Negocio.";
+					log.log(Level.SEVERE, p_Error);
+					fact = null;
+					facts.add(fact);
+					return facts;
+
+				}
+				// Fin Xpande
+
 				fact.createLine(null, MAccount.get(getCtx(), payables_ID),
-					getC_Currency_ID(), null, grossAmt);
-			if (serviceAmt.signum() != 0)
+						getC_Currency_ID(), null, grossAmt);
+			}
+			if (serviceAmt.signum() != 0){
+
+				// Xpande. Gabriel Vila. 21/03/2019.
+				// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+				MAccount acctBP = MAccount.get(getCtx(), payables_ID);
+				if ((acctBP == null) || (acctBP.get_ID() <= 0)){
+					p_Error = "No se obtuvo cuenta contable de compra (V_Liability_Services_Acct) para el Socio de Negocio.";
+					log.log(Level.SEVERE, p_Error);
+					fact = null;
+					facts.add(fact);
+					return facts;
+
+				}
+				// Fin Xpande
+
 				fact.createLine(null, MAccount.get(getCtx(), payablesServices_ID),
-					getC_Currency_ID(), null, serviceAmt);
+						getC_Currency_ID(), null, serviceAmt);
+			}
 			//
 			updateProductPO(as);	//	Only API
 			updateProductInfo (as.getC_AcctSchema_ID());    //  only API
