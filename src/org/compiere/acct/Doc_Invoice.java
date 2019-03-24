@@ -325,7 +325,13 @@ public class Doc_Invoice extends Doc
 		}
 		else{
 			// Considero lineas de asiento manual para el balanceo
-			retValue = retValue.subtract(this.getBalanceAsientoManual());
+			BigDecimal balanceo = this.getBalanceAsientoManual();
+			if (balanceo.compareTo(Env.ZERO) > 0){
+				retValue = retValue.subtract(balanceo);
+			}
+			else{
+				retValue = retValue.add(balanceo);
+			}
 		}
 		// Fin Xpande.
 
