@@ -923,7 +923,7 @@ public class Doc_Invoice extends Doc
 				// Si la organización asociada al socio de negocio esta parametrizada para utilizar cuenta transitoria en venta entre locales
 				String sql = " select count(*) " +
 						     " from z_comconfvtalocalorg  " +
-							 " where ad_orgtrx_id =" + partner.getAD_OrgBP_ID_Int() +
+							 " where ad_orgtrx_id =" + getAD_Org_ID() +
 							 " and isactive='Y'";
 				int cont = DB.getSQLValueEx(null, sql);
 				if (cont > 0){
