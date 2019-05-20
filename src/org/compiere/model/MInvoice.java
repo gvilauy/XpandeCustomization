@@ -3603,4 +3603,107 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		}
 	}
 
+
+	/***
+	 * Genera documento de Entrega / Recepción, para esta invoice.
+	 * Xpande. Created by Gabriel Vila on 5/17/19.
+	 * @param completeIt
+	 * @return
+	 */
+	public String generateInOutFromInvoice(boolean generateOrder, boolean completeIt){
+
+		String message = null;
+		String action = "";
+
+		try{
+
+			// Si tengo que generar orden de venta primero, lo hago ahora.
+			if (generateOrder){
+				//message = this.generateOrderFromInvoice(completeIt);
+				if (message != null){
+					return message;
+				}
+			}
+
+			// Cabezal de InOut
+			String isSOTrx = (this.isSOTrx()) ? "Y" : "N";
+			String whereClause = " docbasetype='MMS' and isdefault='Y' and issotrx='" + isSOTrx + "'" +
+					" and ad_client_id =" + this.getAD_Client_ID() + " and isactive='Y' ";
+
+			int[] docTypeIDs	= MDocType.getAllIDs(I_C_DocType.Table_Name, whereClause, null);
+			MDocType docType = null;
+			if (docTypeIDs.length <= 0){
+				return "Falta parametrizar documento de Entrega / Recepción por defecto.";
+			}
+			docType = new MDocType(getCtx(), docTypeIDs[0], null);
+
+			MWarehouse[] warehouseList = MWarehouse.getForOrg(getCtx(), this.getAD_Org_ID());
+			if (warehouseList.length <= 0){
+				return "Falta parametrizar almacén para esta Organización.";
+			}
+			MWarehouse warehouse = new MWarehouse(getCtx(), warehouseList[0].get_ID(), null);
+
+			MInOut inOut = new MInOut(this, docType.get_ID(), this.getDateInvoiced(), warehouse.get_ID());
+			if (this.isSOTrx()){
+				inOut.setMovementType(X_M_InOut.MOVEMENTTYPE_CustomerShipment);
+			}
+			else{
+				inOut.setMovementType(X_M_InOut.MOVEMENTTYPE_VendorReceipts);
+			}
+			inOut.setC_BPartner_ID(this.getC_BPartner_ID());
+			inOut.setC_BPartner_Location_ID(this.getC_BPartner_Location_ID());
+			inOut.setMovementDate(this.getDateInvoiced());
+			inOut.setAD_Org_ID(this.getAD_Org_ID());
+			inOut.saveEx();
+
+			int contador = 0;
+
+			MInvoiceLine[] lines = this.getLines(true);
+			for (int i = 0; i < lines.length; i++){
+				MInvoiceLine invoiceLine = lines[i];
+
+				if (invoiceLine.getM_Product_ID() > 0){
+					MInOutLine inOutLine = new MInOutLine(inOut);
+					inOutLine.setM_Warehouse_ID(warehouse.get_ID());
+					inOutLine.setM_Product_ID(invoiceLine.getM_Product_ID());
+					inOutLine.setMovementQty(invoiceLine.getQtyInvoiced());
+					inOutLine.setC_UOM_ID(invoiceLine.getC_UOM_ID());
+					inOutLine.setQtyEntered(invoiceLine.getQtyEntered());
+					inOutLine.setAD_Org_ID(inOut.getAD_Org_ID());
+					inOutLine.setM_AttributeSetInstance_ID(invoiceLine.getM_AttributeSetInstance_ID());
+					inOutLine.saveEx();
+
+					action = " update c_invoiceline set m_inoutline_id =" + inOutLine.get_ID() +
+							 " where c_invoiceline_id =" + invoiceLine.get_ID();
+					DB.executeUpdateEx(action, get_TrxName());
+
+					contador++;
+				}
+			}
+
+			// Si genere lineas de inout
+			if (contador > 0){
+				// Completo entrega si asi se indica
+				if (completeIt){
+					if (!inOut.processIt(DocAction.ACTION_Complete)){
+						return inOut.getProcessMsg();
+					}
+					inOut.saveEx();
+				}
+			}
+			else{
+				// Elimino cabezal de orden ya que no tiene lineas
+				inOut.deleteEx(true);
+			}
+
+
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+
+		return message;
+	}
+
+
 }	//	MInvoice
