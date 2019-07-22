@@ -1294,6 +1294,7 @@ public abstract class Doc
 	public static final int 	ACCTYPE_MP_Entregados = 502;
 	public static final int 	ACCTYPE_RT_RetencionEmitida = 503;
 	public static final int 	ACCTYPE_RT_RetencionRecibida = 504;
+	public static final int 	ACCTYPE_MP_EmiPendEnt = 505;
 	// Fin Xpande
 
 	/**
@@ -1553,6 +1554,17 @@ public abstract class Doc
 			}
 			else{
 				sql = "SELECT MP_Emitidos_Acct FROM z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID=?";
+			}
+			para_1 = -1;
+		}
+		else if (AcctType == ACCTYPE_MP_EmiPendEnt)
+		{
+			if (this.getC_Currency_ID() == as.getC_Currency_ID()){
+				sql = "SELECT MP_EmiPendEnt_Acct FROM c_acctschema_default WHERE C_AcctSchema_ID=?";
+			}
+			else{
+				sql = "SELECT MP_EmiPendEnt_Acct FROM z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
 						" AND C_AcctSchema_ID=?";
 			}
 			para_1 = -1;
