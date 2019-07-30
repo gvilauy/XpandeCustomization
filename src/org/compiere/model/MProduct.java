@@ -589,8 +589,17 @@ public class MProduct extends X_M_Product
 				errMsg += " - @QtyReserved@" + Reserved;
 			if (errMsg.length() > 0)
 			{
+				// Xpande. Gabriel Vila. 30/07/2019.
+				// Comento lineas que retornar mensaje de error en la validación de stock contra MStorage.
+				// Por ahora no lo necesito.
+
+				/*
 				log.saveError("Error", Msg.parseTranslation(getCtx(), errMsg)); 
 				return false;
+				*/
+
+				// Fin Xpande.
+
 			}
 		}	//	storage
 
