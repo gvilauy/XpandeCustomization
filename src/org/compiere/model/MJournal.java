@@ -88,7 +88,7 @@ public class MJournal extends X_GL_Journal implements DocAction, DocOptions {
 		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
 
 			options[newIndex++] = DocumentEngine.ACTION_ReActivate;
-			options[newIndex++] = DocumentEngine.ACTION_Void;
+			//options[newIndex++] = DocumentEngine.ACTION_Void;
 		}
 
 		return newIndex;
