@@ -96,7 +96,6 @@ public class Doc_Invoice extends Doc
 		}
 		// Fin Xpande
 
-
 		//	Amounts
 		setAmount(Doc.AMTTYPE_Gross, invoice.getGrandTotal());
 		setAmount(Doc.AMTTYPE_Net, invoice.getTotalLines());
@@ -132,7 +131,21 @@ public class Doc_Invoice extends Doc
 
 			while(rs.next()){
 				MAccount account = new MAccount(getCtx(), rs.getInt("c_validcombination_id"), this.getTrxName());
-				fact.createLine (null, account, invoice.getC_Currency_ID(), rs.getBigDecimal("AmtSourceDr"), rs.getBigDecimal("AmtSourceCr"));
+				FactLine fl1 = fact.createLine (null, account, invoice.getC_Currency_ID(), rs.getBigDecimal("AmtSourceDr"), rs.getBigDecimal("AmtSourceCr"));
+				if (fl1 != null){
+
+					// Me aseguro organización correcta
+					fl1.setAD_Org_ID(invoice.getAD_Org_ID());
+
+					// Si en la linea del asiento manual tengo un socio de negocio distinto al socio de negocio del comprobante
+					int cBPartnerIDAux = rs.getInt("c_bpartner_id");
+					if (cBPartnerIDAux > 0){
+						if (cBPartnerIDAux != invoice.getC_BPartner_ID()){
+							// Guardo este socio de negocio en la linea del asiento contable
+							fl1.setC_BPartner_ID(cBPartnerIDAux);
+						}
+					}
+				}
 			}
 		}
 		catch (Exception e){
@@ -716,6 +729,7 @@ public class Doc_Invoice extends Doc
 			else{
 				// Hago el asiento manual para sustiuir impuestos y lineas del documento.
 				this.createFactsAsientoManual(fact, as);
+				this.setC_BPartner_ID(((MInvoice)getPO()).getC_BPartner_ID());
 			}
 			// Fin Xpande.
 
@@ -867,6 +881,7 @@ public class Doc_Invoice extends Doc
 			else{
 				// Hago el asiento manual para sustiuir impuestos y lineas del documento.
 				this.createFactsAsientoManual(fact, as);
+				this.setC_BPartner_ID(((MInvoice)getPO()).getC_BPartner_ID());
 			}
 			// Fin Xpande.
 
