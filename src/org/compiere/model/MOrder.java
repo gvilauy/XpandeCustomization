@@ -21,6 +21,7 @@ import org.adempiere.exceptions.BPartnerNoShipToAddressException;
 import org.adempiere.exceptions.FillMandatoryException;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
+import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -64,14 +65,59 @@ import java.util.regex.Pattern;
  * @author Michael Judd, www.akunagroup.com
  *          <li>BF [ 2804888 ] Incorrect reservation of products with attributes
  */
-public class MOrder extends X_C_Order implements DocAction
-{
+public class MOrder extends X_C_Order implements DocAction, DocOptions {
 
 
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 6238231989649199067L;
+
+	/***
+	 * Actiones de documentos customizadas.
+	 * Xpande. Created by Gabriel Vila on 8/3/17. Issue #4.
+	 * @param docStatus
+	 * @param processing
+	 * @param orderType
+	 * @param isSOTrx
+	 * @param AD_Table_ID
+	 * @param docAction
+	 * @param options
+	 * @param index
+	 * @return
+	 */
+	@Override
+	public int customizeValidActions(String docStatus, Object processing, String orderType, String isSOTrx, int AD_Table_ID, String[] docAction, String[] options, int index) {
+
+		int newIndex = 0;
+
+		if ((docStatus.equalsIgnoreCase(STATUS_Drafted))
+				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
+				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
+
+			options[newIndex++] = DocumentEngine.ACTION_Prepare;
+			options[newIndex++] = DocumentEngine.ACTION_Complete;
+
+		}
+		else if (docStatus.equalsIgnoreCase(STATUS_Completed)){
+
+			/*
+			// En invoices, solo permito reactivar comprobantes de compra.
+			if (isSOTrx.equalsIgnoreCase("N")){
+				options[newIndex++] = DocumentEngine.ACTION_ReActivate;
+			}
+			*/
+
+			options[newIndex++] = DocumentEngine.ACTION_ReActivate;
+
+			// No tiene sentido anular en comprobantes de compra, porque se puede hacer lo mismo reactivandolo y eliminandolo.
+			// No es posible anular comprobantes de venta, debido a CFE.
+			//options[newIndex++] = DocumentEngine.ACTION_Void;
+		}
+
+		return newIndex;
+	} // Xpande.
+
 
 	/**
 	 * 	Create new Order by copying
