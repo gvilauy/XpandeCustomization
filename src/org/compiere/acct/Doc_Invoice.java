@@ -433,8 +433,22 @@ public class Doc_Invoice extends Doc
 					{
 						FactLine tl = fact.createLine(null, m_taxes[i].getAccount(DocTax.ACCTTYPE_TaxDue, as),
 								getC_Currency_ID(), null, amt);
-						if (tl != null)
+						if (tl != null){
 							tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
+						}
+						// Xpande. Gabriel Vila. 03/10/2019.
+						// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+						else {
+							MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
+							if ((accountTax == null) || (accountTax.get_ID() <= 0)) {
+								p_Error = "No se obtuvo cuenta contable de venta para impuesto : " + m_taxes[i].getName();
+								log.log(Level.SEVERE, p_Error);
+								fact = null;
+								facts.add(fact);
+								return facts;
+							}
+						}
+						// Fin Xpande
 					}
 				}
 				//  Revenue                 CR
