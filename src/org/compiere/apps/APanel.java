@@ -2631,19 +2631,22 @@ public final class APanel extends CPanel
 					this, m_curWindowNo, vButton.getProcess_ID(), table_ID,
 					record_ID, startWOasking);
 
-			// Xpande. Gabriel Vila. 15/06/2017.
-			// Se agrega linea para setear flag, ya que siempre viene en false y esto genera que a pesar que le indico
-			// a un informe y proceso que no muestre ayuda, se muestra siempre.
-			//if (!dialog.isValidDialog()) startWOasking = true;
-			// Xpande.
+			// Xpande. Gabriel Vila. 08/10/2019.
+			// Se cambia el IF para que funcione el hecho de mostrar ayuda o ejecutar en silencio los procesos.
+			// La solución esta copiada de Aempiere v 3.92
 
 			//	FR [ 265 ]
 			//	BR [ 323 ]
-			if(!startWOasking) {
+
+			//if(!startWOasking) {
+			if(!startWOasking && !dialog.isAutoStart()) {
+
 				dialog.validate();
 				dialog.pack();
 				AEnv.showCenterWindow(Env.getWindow(m_curWindowNo), dialog);
 			}
+
+			// Fin Xpande.
 		}
 	}	//	actionButton
 
