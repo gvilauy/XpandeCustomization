@@ -2631,12 +2631,12 @@ public final class APanel extends CPanel
 					this, m_curWindowNo, vButton.getProcess_ID(), table_ID,
 					record_ID, startWOasking);
 
+			//	FR [ 265 ]
+			//	BR [ 323 ]
+
 			// Xpande. Gabriel Vila. 08/10/2019.
 			// Se cambia el IF para que funcione el hecho de mostrar ayuda o ejecutar en silencio los procesos.
 			// La solución esta copiada de Aempiere v 3.92
-
-			//	FR [ 265 ]
-			//	BR [ 323 ]
 
 			//if(!startWOasking) {
 			if(!startWOasking && !dialog.isAutoStart()) {

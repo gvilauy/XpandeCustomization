@@ -324,11 +324,6 @@ public class ProcessPanel extends ProcessController
 	 */
 	public void afterInit() {
 
-		// XPande. Gabriel Vila. 08/10/2019.
-		// Comento código de version de adempiere 3.91 y copio el que esta hoy en 3.92, para que funcione el hecho de
-		// no mostrar ventana de proceso cuando se indica que ejecute en silencio.
-
-
 		//	BR [ 265 ]
 		if (!hasParameters()) {
 			if (getShowHelp() != null 
@@ -342,27 +337,6 @@ public class ProcessPanel extends ProcessController
 				&& getShowHelp().equals("S")) {
 			setAutoStart(true);
 		}
-
-
-		/*
-		if(isAutoStart()) {
-			return;
-		}
-		if (!hasParameters()) {
-			if (getShowHelp() != null
-					&& getShowHelp().equals("N")) {
-				setAutoStart(true);    // don't ask first click
-				// anyway show resulting window
-			}
-		}
-		// Check if the process is a silent one
-		if(getShowHelp() != null
-				&& getShowHelp().equals("S")) {
-			setAutoStart(true);
-		}
-
-		 */
-		// Fin Xpande.
 
 		//	
 		mainPanel.validate();
