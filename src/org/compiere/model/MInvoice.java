@@ -26,10 +26,12 @@ import org.apache.axis.client.Call;
 import org.apache.axis.client.Service;
 import org.apache.axis.encoding.XMLType;
 import org.compiere.acct.Doc;
+import org.compiere.apps.ProcessCtl;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
 import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
+import org.compiere.process.ProcessInfo;
 import org.compiere.util.*;
 import org.eevolution.model.MPPProductBOM;
 import org.eevolution.model.MPPProductBOMLine;
@@ -2028,6 +2030,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				return DocAction.STATUS_Invalid;
 			}
 		}
+
+		// Si es comprobante de venta
+		if (this.isSOTrx()){
+			// Si tengo flag de imprimir comprobante automáticamente al completarlo
+			if (this.imprimeDocAutomatico()){
+				this.imprimirComprobanteVenta();
+			}
+		}
 		// Fin Xpande.
 
 		m_processMsg = info.toString().trim();
@@ -2705,5 +2715,88 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		return message;
 	}
 
+	/***
+	 * Imprimir comprobante de venta.
+	 * Xpande. Created by Gabriel Vila on 10/11/19.
+	 * @param ctx
+	 * @param cInvoiceID
+	 * @param trxName
+	 */
+	private void imprimirComprobanteVenta(){
+
+		try{
+
+			int processID = MProcess.getProcess_ID("Z_RP_FacturaTermica", get_TrxName());
+
+			// Mando vista previa del reporte asociado al formato de etiqueta
+			MPInstance instance = new MPInstance(Env.getCtx(), processID, 0);
+			instance.saveEx();
+
+			ProcessInfo pi = new ProcessInfo ("Impresion Comprobante", processID);
+			pi.setAD_PInstance_ID (instance.getAD_PInstance_ID());
+			pi.setPrintPreview(true);
+
+			MPInstancePara para = new MPInstancePara(instance, 10);
+			para.setParameter("C_Invoice_ID", new BigDecimal(this.get_ID()));
+			para.saveEx();
+
+			MPInstancePara para1 = new MPInstancePara(instance, 20);
+			para1.setParameter("Record_ID", this.get_ID());
+			para1.saveEx();
+
+
+			pi.setRecord_ID(this.get_ID());
+			pi.setPrintPreview(false);
+
+			//ProcessCtl worker = new ProcessCtl(null, 0, pi, Trx.get(get_TrxName(), false));
+			ProcessCtl worker = new ProcessCtl(null, 0, pi, null);
+			worker.start();
+
+		}
+		catch (Exception e){
+			System.out.println(e.getMessage());
+		}
+	}
+
+	/***
+	 * Si se debe o no imprimir automaticamente un comprobante de venta al completarse.
+	 * Xpande. Created by Gabriel Vila on 10/11/19.
+	 * @return
+	 */
+	private boolean imprimeDocAutomatico(){
+
+		boolean value = false;
+
+		String sql = "";
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+
+		try{
+		    sql = "select ImprimirAuto " +
+					" from z_comercialconfig " +
+					" where value='General'";
+
+			pstmt = DB.prepareStatement(sql, get_TrxName());
+			rs = pstmt.executeQuery();
+
+			if(rs.next()){
+				String imprimirAuto = rs.getString("ImprimirAuto");
+				if (imprimirAuto != null){
+					if (imprimirAuto.trim().equalsIgnoreCase("Y")){
+						value = true;
+					}
+				}
+			}
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+		finally {
+		    DB.close(rs, pstmt);
+			rs = null; pstmt = null;
+		}
+
+		return value;
+	}
 
 }	//	MInvoice
