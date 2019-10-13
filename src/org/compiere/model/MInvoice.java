@@ -2031,6 +2031,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			}
 		}
 
+		/*
 		// Si es comprobante de venta
 		if (this.isSOTrx()){
 			// Si tengo flag de imprimir comprobante automáticamente al completarlo
@@ -2038,6 +2039,8 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				this.imprimirComprobanteVenta();
 			}
 		}
+
+		 */
 		// Fin Xpande.
 
 		m_processMsg = info.toString().trim();
@@ -2732,18 +2735,13 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			MPInstance instance = new MPInstance(Env.getCtx(), processID, 0);
 			instance.saveEx();
 
-			ProcessInfo pi = new ProcessInfo ("Impresion Comprobante", processID);
+			ProcessInfo pi = new ProcessInfo ("Impresion" + this.get_ID(), processID);
 			pi.setAD_PInstance_ID (instance.getAD_PInstance_ID());
 			pi.setPrintPreview(true);
 
 			MPInstancePara para = new MPInstancePara(instance, 10);
 			para.setParameter("C_Invoice_ID", new BigDecimal(this.get_ID()));
 			para.saveEx();
-
-			MPInstancePara para1 = new MPInstancePara(instance, 20);
-			para1.setParameter("Record_ID", this.get_ID());
-			para1.saveEx();
-
 
 			pi.setRecord_ID(this.get_ID());
 			pi.setPrintPreview(false);
