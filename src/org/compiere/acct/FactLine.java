@@ -919,14 +919,27 @@ public final class FactLine extends X_Fact_Acct
 			getAD_Org_ID();
 			getC_SalesRegion_ID();
 			//  Set Default Account Info
+
+			// Xpande. Gabriel Vila. 14/10/2019.
+			// No tomo alguno de los valores por defecto de la c_validcombination (MAccount), ya que
+			// se generan desde asientos manuales con sus socios de negocio y productos, y estos no tienen porque
+			// aplicarse a esta linea de asiento.
+			// Comento los seteos por defecto que NO se deben utilizar.
+
+			/*
 			if (getM_Product_ID() == 0)
 				setM_Product_ID (m_acct.getM_Product_ID());
+
+			if (getC_BPartner_ID() == 0)
+				setC_BPartner_ID (m_acct.getC_BPartner_ID());
+
+			 */
+			// Fin Xpande
+
 			if (getC_LocFrom_ID() == 0)
 				setC_LocFrom_ID (m_acct.getC_LocFrom_ID());
 			if (getC_LocTo_ID() == 0)
 				setC_LocTo_ID (m_acct.getC_LocTo_ID());
-			if (getC_BPartner_ID() == 0)
-				setC_BPartner_ID (m_acct.getC_BPartner_ID());
 			if (getAD_OrgTrx_ID() == 0)
 				setAD_OrgTrx_ID (m_acct.getAD_OrgTrx_ID());
 			if (getC_Project_ID() == 0)
