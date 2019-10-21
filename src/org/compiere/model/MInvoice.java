@@ -16,40 +16,23 @@
  *****************************************************************************/
 package org.compiere.model;
 
-import dto.sisteco.SistecoConvertResponse;
-import dto.sisteco.SistecoResponseDTO;
-import dto.uy.gub.dgi.cfe.*;
 import org.adempiere.exceptions.AdempiereException;
 import org.adempiere.exceptions.BPartnerNoAddressException;
 import org.adempiere.exceptions.DBException;
-import org.apache.axis.client.Call;
-import org.apache.axis.client.Service;
-import org.apache.axis.encoding.XMLType;
-import org.compiere.acct.Doc;
 import org.compiere.apps.ProcessCtl;
 import org.compiere.print.ReportEngine;
 import org.compiere.process.DocAction;
 import org.compiere.process.DocOptions;
 import org.compiere.process.DocumentEngine;
+
 import org.compiere.process.ProcessInfo;
 import org.compiere.util.*;
 import org.eevolution.model.MPPProductBOM;
 import org.eevolution.model.MPPProductBOMLine;
-import org.xpande.cfe.model.MZCFERespuestaProvider;
 import org.xpande.cfe.utils.ProcesadorCFE;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.Marshaller;
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeConstants;
-import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.XMLGregorianCalendar;
-import javax.xml.namespace.QName;
-import javax.xml.rpc.ParameterMode;
 import java.io.*;
 import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -2031,7 +2014,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			}
 		}
 
-		/*
+
 		// Si es comprobante de venta
 		if (this.isSOTrx()){
 			// Si tengo flag de imprimir comprobante automáticamente al completarlo
@@ -2040,7 +2023,6 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			}
 		}
 
-		 */
 		// Fin Xpande.
 
 		m_processMsg = info.toString().trim();
@@ -2745,6 +2727,8 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 			pi.setRecord_ID(this.get_ID());
 			pi.setPrintPreview(false);
+
+			pi.ThreadSleepTime = 1000;
 
 			//ProcessCtl worker = new ProcessCtl(null, 0, pi, Trx.get(get_TrxName(), false));
 			ProcessCtl worker = new ProcessCtl(null, 0, pi, null);

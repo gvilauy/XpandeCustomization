@@ -383,6 +383,19 @@ public class ReportStarter implements ProcessCall, ClientProcess
     public boolean startProcess(Properties ctx, ProcessInfo pi, Trx trx)
     {
     	processInfo = pi;
+
+    	// Xpande. Gabriel Vila. 18/10/2019.
+		// Si tengo tiempo para thread sleep en el ProcessInfo, lo hago ahora.
+		if (pi.ThreadSleepTime > 0){
+			try{
+				java.lang.Thread.sleep(pi.ThreadSleepTime);
+			}
+			catch (Exception e){
+				// No hago nada en caso de error
+			}
+		}
+		// Fin Xpande.
+
 		String Name=pi.getTitle();
         int AD_PInstance_ID=pi.getAD_PInstance_ID();
         int Record_ID=pi.getRecord_ID();

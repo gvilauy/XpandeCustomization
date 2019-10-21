@@ -2393,6 +2393,15 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 				return false;
 			}
 
+			// Elimino las reservas que hace el sistema
+			MOrderLine[] lines = getLines(true, MOrderLine.COLUMNNAME_M_Product_ID);
+			if (!reserveStock(null, lines))
+			{
+				m_processMsg = "No se pudo eliminar las reservas de esta Orden.";
+				return false;
+			}
+
+
 			// Elimino info de costos asociada a cada linea de esta orden
 			String action = " delete from m_costdetail where c_orderline_id in " +
 					" (select c_orderline_id from c_orderline where c_order_id =" + this.get_ID() + ") ";
