@@ -16,6 +16,7 @@
  *****************************************************************************/
 package org.compiere.model;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.adempiere.exceptions.BPartnerNoBillToAddressException;
 import org.adempiere.exceptions.BPartnerNoShipToAddressException;
 import org.adempiere.exceptions.FillMandatoryException;
@@ -1455,6 +1456,13 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 	private boolean reserveStock (MDocType dt, MOrderLine[] lines)
 	{
 
+		// Xpande. Gabriel Vila. 21/10/2019.
+		// Antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+		if (!this.reservarStockOrdenVenta()){
+			return true;
+		}
+		// Xpande.
+
 		if (dt == null)
 			dt = MDocType.get(getCtx(), getC_DocType_ID());
 
@@ -2393,27 +2401,31 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 				return false;
 			}
 
-			// Elimino las reservas que hace el sistema
-			MOrderLine[] lines = getLines(true, MOrderLine.COLUMNNAME_M_Product_ID);
-			if (!reserveStock(null, lines))
-			{
-				m_processMsg = "No se pudo eliminar las reservas de esta Orden.";
-				return false;
-			}
-
-
 			// Elimino info de costos asociada a cada linea de esta orden
 			String action = " delete from m_costdetail where c_orderline_id in " +
 					" (select c_orderline_id from c_orderline where c_order_id =" + this.get_ID() + ") ";
 			DB.executeUpdateEx(action, get_TrxName());
 
 			// Fin Xpande.
-
 		}
 		else
 		{
 			log.info("Existing documents not modified - SubType=" + DocSubTypeSO);
 		}
+
+		// Xpande. Gabriel Vila. 21/10/2019.
+		// Para ordenes de venta standar, bajo la reserva de stock.
+		if (isSOTrx()){
+			if (MDocType.DOCSUBTYPESO_StandardOrder.equalsIgnoreCase(DocSubTypeSO)){
+				MOrderLine[] lines = getLines(true, MOrderLine.COLUMNNAME_M_Product_ID);
+				if (!reserveStock(null, lines))
+				{
+					m_processMsg = "No se pudo eliminar las reservas de esta Orden.";
+					return false;
+				}
+			}
+		}
+		// Fin Xpande.
 
 		/* globalqss - 2317928 - Reactivating/Voiding order must reset posted */
 		MFactAcct.deleteEx(MOrder.Table_ID, getC_Order_ID(), get_TrxName());
@@ -2681,5 +2693,30 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 	}	//	createReversals
 
 
+	/***
+	 * Verifica si para ordenes de venta el sistema esta configurado para que se reserve o no stock.
+	 * Xpande. Created by Gabriel Vila on 10/21/19.
+	 * @return
+	 */
+	private boolean reservarStockOrdenVenta(){
+
+		boolean value = false;
+
+		try{
+
+			String sql = " select coalesce(ReservaStockSO,'N') as ReservaStockSO from z_comercialconfig where lower(value) ='general'";
+			String resp = DB.getSQLValueStringEx(null, sql);
+			if (resp != null){
+				if (resp.trim().equalsIgnoreCase("Y")){
+					value = true;
+				}
+			}
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+
+		return value;
+	}
 
 }	//	MOrder
