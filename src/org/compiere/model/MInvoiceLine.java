@@ -515,6 +515,14 @@ public class MInvoiceLine extends X_C_InvoiceLine
 						if (taxLiteralE_ID > 0){
 							stdTax = new MTax (getCtx(), taxLiteralE_ID, get_TrxName());
 						}
+						else{
+							// Es literal E pero no esta seteado la tasa en el configurador comercial. Sigo y veo si tiene impuesto especial de compra.
+							MTaxCategory taxCategory = (MTaxCategory) getProduct().getC_TaxCategory();
+							if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
+								taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+							}
+							stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
+						}
 					}
 				}
 				// Si no es Literal E, para invoices compra/venta en Retail, puede suceder que el producto tenga un impuesto especial de compra/venta.
