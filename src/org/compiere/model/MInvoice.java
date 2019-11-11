@@ -1890,9 +1890,26 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 		//	Update BP Statistics
 		MBPartner bp = new MBPartner (getCtx(), getC_BPartner_ID(), get_TrxName());
+
 		//	Update total revenue and balance / credit limit (reversed on AllocationLine.processIt)
+
+		// Xpande. Gabriel Vila. 11/11/2019.
+		// Cuando genero invoices en procesos batch (ej: Pos facturas cliente, la moneda de la empresa system es CERO y genera problemas
+		// en la conversión de tasas. Por este motivo comento codigo original y sustituyo
+
+		/*
 		BigDecimal invAmt = MConversionRate.convertBase(getCtx(), getGrandTotal(true),	//	CM adjusted
-			getC_Currency_ID(), getDateAcct(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
+				getC_Currency_ID(), getDateAcct(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
+		*/
+
+		BigDecimal invAmt = getGrandTotal(true);
+		if (MClient.get(getCtx()).getC_Currency_ID() > 0){
+			invAmt = MConversionRate.convertBase(getCtx(), getGrandTotal(true),	//	CM adjusted
+					getC_Currency_ID(), getDateAcct(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
+		}
+
+		// Fin Xpande.
+
 		if (invAmt == null)
 		{
 			m_processMsg = "Could not convert C_Currency_ID=" + getC_Currency_ID()
