@@ -1031,12 +1031,19 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
             return false;
         }
 
+        // Xpande. Gabriel Vila. 05/12/2019.
+		// Comento la necesidad de tener una orden de venta ya que puedo genera remtos a clientes de varias lineas de ordenes distintas
+
+		/*
 		//	Shipment - Needs Order/RMA
 		if (!getMovementType().contentEquals(MInOut.MOVEMENTTYPE_CustomerReturns) && isSOTrx() && getC_Order_ID() == 0 && getM_RMA_ID() == 0)
 		{
 			log.saveError("FillMandatory", Msg.translate(getCtx(), "C_Order_ID"));
 			return false;
 		}
+		*/
+
+		// Fin Xpande.
 
         if (isSOTrx() && getM_RMA_ID() != 0)
         {
