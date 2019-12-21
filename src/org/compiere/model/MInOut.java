@@ -1295,7 +1295,14 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 		// Use this set to determine what orders are shipped on
 		// this inout record.
 		Set<Integer> inOutOrders = new TreeSet<Integer>();
-		
+
+		// Xpande. Gabriel Vila. 20/12/2019.
+		// Bandera para indicar si reservar stock o no, según parametrización que se hizo sobre este tema, en configuración comercial.
+
+		boolean reservarStock = this.reservarStockOrdenVenta();
+
+		// Fin Xpande
+
 		//	For all lines
 		MInOutLine[] lines = getLines(true);
 		for (int lineIndex = 0; lineIndex < lines.length; lineIndex++)
@@ -1404,6 +1411,14 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 								orderedDiff = ma.getMovementQty().abs();
 						}
 
+						// Xpande. Gabriel Vila. 21/10/2019.
+						// En entregas, antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+						if (isSOTrx()){
+							if (!reservarStock){
+								reservedDiff = Env.ZERO;
+							}
+						}
+						// Fin Xpande.
 
 						//	Update Storage - see also VMatch.createMatchRecord
 						if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
@@ -1458,6 +1473,15 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 							orderedDiff = QtyPO;
 					}
 
+					// Xpande. Gabriel Vila. 21/10/2019.
+					// En entregas, antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+					if (isSOTrx()){
+						if (!reservarStock){
+							reservedDiff = Env.ZERO;
+						}
+					}
+					// Fin Xpande.
+
 					//	Fallback: Update Storage - see also VMatch.createMatchRecord
 					if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
 						sLine.getM_Locator_ID(),
@@ -1495,11 +1519,27 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 				}
 			}	//	stock movement
 
+			// Xpande. Gabriel Vila. 21/10/2019.
+			// En entregas, antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+			// Comento código original y sustituyo.
+
+			/*
 			//	Correct Order Line
 			if (product != null && oLine != null && isSOTrx())		//	other in VMatch.createMatchRecord
 				oLine.setQtyReserved(oLine.getQtyReserved().add(QtySO));
 			else if (product != null && oLine != null && !isSOTrx())
 				oLine.setQtyReserved(oLine.getQtyReserved().add(QtyPO));
+			*/
+
+			if (product != null && oLine != null && isSOTrx()){
+				if (reservarStock){
+					oLine.setQtyReserved(oLine.getQtyReserved().add(QtySO));
+				}
+			}
+			else if (product != null && oLine != null && !isSOTrx()){
+				oLine.setQtyReserved(oLine.getQtyReserved().add(QtyPO));
+			}
+			// Fin Xpande.
 
 			//	Update Sales Order Line
 			if (oLine != null)
@@ -2368,5 +2408,33 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 			|| DOCSTATUS_Closed.equals(ds)
 			|| DOCSTATUS_Reversed.equals(ds);
 	}	//	isComplete
+
+
+	/***
+	 * Verifica si para ordenes de venta el sistema esta configurado para que se reserve o no stock.
+	 * Xpande. Created by Gabriel Vila on 10/21/19.
+	 * @return
+	 */
+	private boolean reservarStockOrdenVenta(){
+
+		boolean value = false;
+
+		try{
+
+			String sql = " select coalesce(ReservaStockSO,'N') as ReservaStockSO from z_comercialconfig where lower(value) ='general'";
+			String resp = DB.getSQLValueStringEx(null, sql);
+			if (resp != null){
+				if (resp.trim().equalsIgnoreCase("Y")){
+					value = true;
+				}
+			}
+		}
+		catch (Exception e){
+			throw new AdempiereException(e);
+		}
+
+		return value;
+	}
+
 
 }	//	MInOut
