@@ -2321,6 +2321,205 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 		if (m_processMsg != null)
 			return false;
 
+		Set<Integer> inOutOrders = new TreeSet<Integer>();
+
+		// Bandera para indicar si reservar stock o no, según parametrización que se hizo sobre este tema, en configuración comercial.
+		boolean reservarStock = this.reservarStockOrdenVenta();
+
+		String action = "";
+
+		//	For all lines
+		MInOutLine[] lines = getLines(true);
+		for (int lineIndex = 0; lineIndex < lines.length; lineIndex++)
+		{
+			MInOutLine sLine = lines[lineIndex];
+			MProduct product = sLine.getProduct();
+
+			//	Qty & Type
+			String MovementType = getMovementType();
+			BigDecimal Qty = sLine.getMovementQty();
+			if (MovementType.charAt(1) == '+' )	//	C- Customer Shipment - V- Vendor Return
+				Qty = Qty.negate();
+			BigDecimal QtySO = Env.ZERO;
+			BigDecimal QtyPO = Env.ZERO;
+
+			//	Update Order Line
+			MOrderLine oLine = null;
+			if (sLine.getC_OrderLine_ID() != 0)
+			{
+				oLine = new MOrderLine (getCtx(), sLine.getC_OrderLine_ID(), get_TrxName());
+				// Add order id to set of orders
+				inOutOrders.add(oLine.getC_Order_ID());
+
+				if ((isSOTrx() && MInOut.MOVEMENTTYPE_CustomerShipment.equals(MovementType) && sLine.getMovementQty().signum() > 0) // Shipment
+						||	(isSOTrx() &&  MInOut.MOVEMENTTYPE_CustomerReturns.equals(MovementType) && sLine.getMovementQty().signum() < 0)) // Revert Customer Return
+					QtySO = sLine.getMovementQty().abs();
+				else if ((isSOTrx() && MInOut.MOVEMENTTYPE_CustomerShipment.equals(MovementType) && sLine.getMovementQty().signum() < 0) // Revert Shipment
+						|| (isSOTrx() && MInOut.MOVEMENTTYPE_CustomerReturns.equals(MovementType) && sLine.getMovementQty().signum() > 0)) // Customer Return
+					QtySO = sLine.getMovementQty().abs().negate();
+				else if ((!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReceipts.equals(MovementType) && sLine.getMovementQty().signum() > 0) // Vendor Receipt
+						|| (!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReturns.equals(MovementType) && sLine.getMovementQty().signum() < 0)) // Revert Return Vendor
+					QtyPO = sLine.getMovementQty().abs();
+				else if ((!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReceipts.equals(MovementType) && sLine.getMovementQty().signum() < 0)  // Revert Vendor Receipt
+						|| (!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReturns.equals(MovementType) && sLine.getMovementQty().signum() > 0))  // Return Vendor
+					QtyPO = sLine.getMovementQty().abs().negate();
+			}
+
+			//	Stock Movement - Counterpart MOrder.reserveStock
+			if (product != null
+					&& product.isStocked() )
+			{
+
+				boolean hayTransaction = false;
+				//same warehouse in order and receipt?
+				boolean sameWarehouse = true;
+				//	Reservation ASI - assume none
+				int reservationAttributeSetInstance_ID = 0; // sLine.getM_AttributeSetInstance_ID();
+				if (oLine != null) {
+					reservationAttributeSetInstance_ID = oLine.getM_AttributeSetInstance_ID();
+					sameWarehouse = oLine.getM_Warehouse_ID()==getM_Warehouse_ID();
+				}
+				//
+				if (sLine.getM_AttributeSetInstance_ID() == 0)
+				{
+					List<MInOutLineMA> mas = MInOutLineMA.get(getCtx(), sLine.getM_InOutLine_ID(), get_TrxName());
+					for (MInOutLineMA ma : mas)
+					{
+						BigDecimal QtyMA = ma.getMovementQty();
+						if (MovementType.charAt(1) == '+')	//	C- Customer Shipment - V- Vendor Return
+							QtyMA = QtyMA.negate();
+						BigDecimal reservedDiff = Env.ZERO;
+						BigDecimal orderedDiff = Env.ZERO;
+
+						if (sLine.getC_OrderLine_ID() != 0)
+						{
+							if ((isSOTrx() && MInOut.MOVEMENTTYPE_CustomerShipment.equals(MovementType) && ma.getMovementQty().signum() > 0) // Shipment
+									||	(isSOTrx() &&  MInOut.MOVEMENTTYPE_CustomerReturns.equals(MovementType) &&  ma.getMovementQty().signum() < 0)) // Revert Customer Return
+								reservedDiff =  ma.getMovementQty().abs();
+							else if ((isSOTrx() && MInOut.MOVEMENTTYPE_CustomerShipment.equals(MovementType) && ma.getMovementQty().signum() < 0) // Revert Shipment
+									|| (isSOTrx() && MInOut.MOVEMENTTYPE_CustomerReturns.equals(MovementType) && ma.getMovementQty().signum() > 0)) // Customer Return
+								reservedDiff = ma.getMovementQty().abs().negate();
+							else if ((!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReceipts.equals(MovementType) && ma.getMovementQty().signum() > 0) // Vendor Receipt
+									|| (!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReturns.equals(MovementType) && ma.getMovementQty().signum() < 0)) // Revert Return Vendor
+								orderedDiff = ma.getMovementQty().abs();
+							else if ((!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReceipts.equals(MovementType) && ma.getMovementQty().signum() < 0)  // Revert Vendor Receipt
+									|| (!isSOTrx() &&  MInOut.MOVEMENTTYPE_VendorReturns.equals(MovementType) && ma.getMovementQty().signum() > 0))  // Return Vendor
+								orderedDiff = ma.getMovementQty().abs().negate();
+						}
+
+						// En entregas, antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+						if (isSOTrx()){
+							if (!reservarStock){
+								reservedDiff = Env.ZERO;
+							}
+						}
+
+						//	Update Storage - see also VMatch.createMatchRecord
+						if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
+								sLine.getM_Locator_ID(),
+								sLine.getM_Product_ID(),
+								ma.getM_AttributeSetInstance_ID(), reservationAttributeSetInstance_ID,
+								QtyMA,
+								sameWarehouse ? reservedDiff : Env.ZERO,
+								sameWarehouse ? orderedDiff : Env.ZERO,
+								get_TrxName()))
+						{
+							m_processMsg = "Cannot correct Inventory (MA)";
+							return false;
+						}
+						if (!sameWarehouse) {
+							//correct qtyOrdered in warehouse of order
+							MWarehouse wh = MWarehouse.get(getCtx(), oLine.getM_Warehouse_ID());
+							if (!MStorage.add(getCtx(), oLine.getM_Warehouse_ID(),
+									wh.getDefaultLocator().getM_Locator_ID(),
+									sLine.getM_Product_ID(),
+									ma.getM_AttributeSetInstance_ID(), reservationAttributeSetInstance_ID,
+									Env.ZERO, reservedDiff, orderedDiff, get_TrxName()))
+							{
+								m_processMsg = "Cannot correct Inventory (MA) in order warehouse";
+								return false;
+							}
+						}
+						hayTransaction = true;
+					}
+				}
+
+				if (!hayTransaction)
+				{
+					BigDecimal reservedDiff = Env.ZERO;
+					BigDecimal orderedDiff = Env.ZERO;
+					if (sLine.getC_OrderLine_ID() != 0 && sameWarehouse)
+					{
+						if (isSOTrx())
+							reservedDiff = QtySO.negate();
+						else
+							orderedDiff = QtyPO.negate();
+					}
+
+					// En entregas, antes de reservar stock, miro la parametrización que se hizo sobre este tema, en configuración comercial.
+					if (isSOTrx()){
+						if (!reservarStock){
+							reservedDiff = Env.ZERO;
+						}
+					}
+
+					//	Fallback: Update Storage - see also VMatch.createMatchRecord
+					if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
+							sLine.getM_Locator_ID(),
+							sLine.getM_Product_ID(),
+							sLine.getM_AttributeSetInstance_ID(), reservationAttributeSetInstance_ID,
+							Qty, reservedDiff, orderedDiff, get_TrxName()))
+					{
+						m_processMsg = "Cannot correct Inventory";
+						return false;
+					}
+					if (!sameWarehouse) {
+						//correct qtyOrdered in warehouse of order
+						MWarehouse wh = MWarehouse.get(getCtx(), oLine.getM_Warehouse_ID());
+						if (!MStorage.add(getCtx(), oLine.getM_Warehouse_ID(),
+								wh.getDefaultLocator().getM_Locator_ID(),
+								sLine.getM_Product_ID(),
+								sLine.getM_AttributeSetInstance_ID(), reservationAttributeSetInstance_ID,
+								Env.ZERO, QtySO, QtyPO, get_TrxName()))
+						{
+							m_processMsg = "Cannot correct Inventory";
+							return false;
+						}
+					}
+				}
+			}	//	stock movement
+
+			if (product != null && oLine != null && isSOTrx()){
+				if (reservarStock){
+					oLine.setQtyReserved(oLine.getQtyReserved().add(QtySO));
+				}
+			}
+			else if (product != null && oLine != null && !isSOTrx()){
+				oLine.setQtyReserved(oLine.getQtyReserved().add(QtyPO));
+			}
+
+			//	Update Sales Order Line
+			if (oLine != null)
+			{
+				if (isSOTrx()							//	PO is done by Matching
+						|| sLine.getM_Product_ID() == 0)	//	PO Charges, empty lines
+				{
+					oLine.setQtyDelivered(oLine.getQtyDelivered().subtract(Qty));
+				}
+				oLine.setDateDelivered(getMovementDate());	//	overwrite=last
+				oLine.saveEx();
+			}
+
+			// Eliminar instancias de atributos
+			action = " delete from " + X_M_InOutLineMA.Table_Name + " where m_inoutline_id =" + sLine.get_ID();
+			DB.executeUpdateEx(action, get_TrxName());
+
+			// Eliminar info en m_transaction
+			action = " delete from m_transaction where m_inoutline_id =" + sLine.get_ID();
+			DB.executeUpdateEx(action, get_TrxName());
+
+		}
+
 		// After reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_REACTIVATE);
 		if (m_processMsg != null)
@@ -2337,11 +2536,7 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 		// return false;
 		return true;
 		// Xpande
-
-
-
 	}	//	reActivateIt
-
 
 	/*************************************************************************
 	 * 	Get Summary
