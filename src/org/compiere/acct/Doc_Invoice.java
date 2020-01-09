@@ -23,6 +23,7 @@ import org.compiere.util.DB;
 import org.compiere.util.Env;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -239,6 +240,7 @@ public class Doc_Invoice extends Doc
 				if (!tax.isZeroTax())
 				{
 					BigDecimal LineNetAmtTax = tax.calculateTax(LineNetAmt, true, getStdPrecision());
+					//BigDecimal LineNetAmtTax = tax.calculateTax(LineNetAmt, true, 4);
 					log.fine("LineNetAmt=" + LineNetAmt + " - Tax=" + LineNetAmtTax);
 					LineNetAmt = LineNetAmt.subtract(LineNetAmtTax);
 					for (int t = 0; t < m_taxes.length; t++)
@@ -250,6 +252,7 @@ public class Doc_Invoice extends Doc
 						}
 					}
 					BigDecimal PriceListTax = tax.calculateTax(PriceList, true, getStdPrecision());
+					//BigDecimal PriceListTax = tax.calculateTax(PriceList, true, 4);
 					PriceList = PriceList.subtract(PriceListTax);
 				}
 			}	//	correct included Tax
@@ -348,6 +351,7 @@ public class Doc_Invoice extends Doc
 				retValue = retValue.add(balanceo);
 			}
 		}
+		//retValue = Env.ZERO;
 		// Fin Xpande.
 
 		sb.append("]");
