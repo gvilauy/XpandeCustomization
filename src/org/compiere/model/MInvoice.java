@@ -2010,8 +2010,17 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			return DocAction.STATUS_Invalid;
 		}
 
+		// Xpande. Gabriel Vila. 19/01/2020.
+		// Cambio metodo que setea numero definitivo de documento, ya que puedo tener secuenciales distintos según organización
+		// del documento.
+		// Comento y sustituyo.
+
+		/*
 		// Set the definite document number after completed (if needed)
 		setDefiniteDocumentNo();
+		*/
+		this.setDefiniteDocumentNo(this.getC_DocTypeTarget_ID());
+		// Fin Xpande.
 
 		//	Counter Documents
 		MInvoice counter = createCounterDoc();
@@ -2797,5 +2806,47 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 		return value;
 	}
+
+
+	/***
+	 * Metodo que setea numerador según ID de documento recibido.
+	 * Xpande. Created by Gabriel Vila on 1/19/20.
+	 * @param cDocTypeID
+	 */
+	private void setDefiniteDocumentNo(int cDocTypeID) {
+
+		String value = null;
+
+		MDocType dt = MDocType.get(getCtx(), cDocTypeID);
+
+		if (dt.isOverwriteDateOnComplete()) {
+			setDateInvoiced(new Timestamp (System.currentTimeMillis()));
+		}
+
+		if (dt.isOverwriteSeqOnComplete()) {
+
+			if (this.isSOTrx()){
+				String sql = " select ad_sequence_id " +
+						" from Z_ComConfSeqOrg " +
+						" where ad_orgtrx_id =" + this.getAD_Org_ID() +
+						" and c_doctype_id =" + this.getC_DocTypeTarget_ID() +
+						" and isactive ='Y' ";
+				int adSequenceID = DB.getSQLValueEx(get_TrxName(), sql);
+
+				if (adSequenceID > 0){
+					MSequence sequence = new MSequence(getCtx(), adSequenceID, get_TrxName());
+					value = sequence.getDocumentNo(get_TrxName(), true, this);
+				}
+			}
+
+			if (value == null){
+				value = DB.getDocumentNo(cDocTypeID, get_TrxName(), true, this);
+			}
+
+			if (value != null)
+				setDocumentNo(value);
+		}
+	}
+
 
 }	//	MInvoice
