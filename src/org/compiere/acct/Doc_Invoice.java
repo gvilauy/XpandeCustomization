@@ -413,11 +413,14 @@ public class Doc_Invoice extends Doc
 			// Xpande. Gabriel Vila. 04/04/2019.
 			// Defino flag para contabilizar normalmente o no el credito.
 			boolean contabilizaCR = true;
+
+			/*
 			// Si aplica facturación entre locales, no hago la contabilización normal para Credito.
 			if (this.contabilizaVtaEntreLocales(fact, grossAmt, true)){
 				contabilizaCR = false;
 			}
 			// Fin Xpande.
+			 */
 
 			// Xpande. Gabriel Vila. 04/04/2019.
 			// Si contabilizo el crédito normalmente
@@ -525,11 +528,14 @@ public class Doc_Invoice extends Doc
 			// Xpande. Gabriel Vila. 04/04/2019.
 			// Defino flag para contabilizar normalmente o no el debito.
 			boolean contabilizaDR = true;
+
+			/*
 			// Si aplica facturación entre locales, no hago la contabilización normal para Credito.
 			if (this.contabilizaVtaEntreLocales(fact, grossAmt, false)){
 				contabilizaDR = false;
 			}
 			// Fin Xpande.
+			 */
 
 			// Xpande. Gabriel Vila. 04/04/2019.
 			// Si contabilizo el crédito normalmente
