@@ -625,81 +625,36 @@ public class Doc_Invoice extends Doc
 			BigDecimal grossAmt = getAmount(Doc.AMTTYPE_Gross);
 			BigDecimal serviceAmt = Env.ZERO;
 
-			//  Charge          DR
-			fact.createLine(null, getAccount(Doc.ACCTTYPE_Charge, as),
-				getC_Currency_ID(), getAmount(Doc.AMTTYPE_Charge), null);
+
+			// Xpande. Gabriel Vila. 19/03/2020.
+			// Si esta invoice esta marcada como comprobante de carga inicial, la contabilización al DR es distinta de la normal.
+			// Agrego este IF - ELSE
+			MInvoice invoice = (MInvoice)getPO();
+			if (!invoice.get_ValueAsBoolean("IsInitPosted")){
+				//  Charge          DR
+				fact.createLine(null, getAccount(Doc.ACCTTYPE_Charge, as),
+						getC_Currency_ID(), getAmount(Doc.AMTTYPE_Charge), null);
+
+			}
 
 			// Xpande. Gabriel Vila. 28/11/2018.
 			// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
 			// Agrego el IF y le meto dentro el codigo original de ADempiere
 			if (!this.doAsientoManual){
 
-				//  TaxCredit       DR
-				for (int i = 0; i < m_taxes.length; i++)
-				{
-					// Xpande. Gabriel Vila. 21/03/2019.
-					// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
-					MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
-					if ((accountTax == null) || (accountTax.get_ID() <= 0)){
-						p_Error = "No se obtuvo cuenta contable de compra para impuesto : " + m_taxes[i].getName();
-						log.log(Level.SEVERE, p_Error);
-						fact = null;
-						facts.add(fact);
-						return facts;
-					}
-					// Fin Xpande
+				// Xpande. Gabriel Vila. 19/03/2020.
+				// Si esta invoice esta marcada como comprobante de carga inicial, la contabilización al DR es distinta de la normal.
+				// Agrego este IF - ELSE
+				if (!invoice.get_ValueAsBoolean("IsInitPosted")){
 
-					FactLine tl;
-					if (m_taxes[i].getRate().signum() >= 0)
-						tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount(), null);
-					else
-						tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(),  null , m_taxes[i].getAmount().negate());
-
-					if (tl != null)
-						tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
-				}
-				//  Expense         DR
-				for (int i = 0; i < p_lines.length; i++)
-				{
-					DocLine line = p_lines[i];
-					boolean landedCost = landedCost(as, fact, line, true);
-					if (landedCost && as.isExplicitCostAdjustment())
+					//  TaxCredit       DR
+					for (int i = 0; i < m_taxes.length; i++)
 					{
-						fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-								getC_Currency_ID(), line.getAmtSource(), null);
-						//
-						FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-								getC_Currency_ID(), null, line.getAmtSource());
-						String desc = line.getDescription();
-						if (desc == null)
-							desc = "100%";
-						else
-							desc += " 100%";
-						fl.setDescription(desc);
-					}
-					if (!landedCost)
-					{
-						MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
-						if (line.isItem())
-							expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
-
 						// Xpande. Gabriel Vila. 21/03/2019.
 						// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
-						if ((expense == null) || (expense.get_ID() <= 0)){
-							String msgCta = "P_Expense_Acct";
-							String msgProd = "";
-							if (line.isItem()){
-								msgCta = "P_InventoryClearing_Acct";
-							}
-							if (line.getM_Product_ID() > 0){
-								MProduct product = new MProduct(getCtx(), line.getM_Product_ID(), null);
-								msgProd = "Producto : " + product.getValue() + " - " + product.getName();
-							}
-							else if(line.getC_Charge_ID() > 0){
-								MCharge charge = new MCharge(getCtx(), line.getC_Charge_ID(), null);
-								msgProd = "Cargo : " + charge.getName();
-							}
-							p_Error = "No se obtuvo cuenta contable de compra (" + msgCta + "). " + msgProd;
+						MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
+						if ((accountTax == null) || (accountTax.get_ID() <= 0)){
+							p_Error = "No se obtuvo cuenta contable de compra para impuesto : " + m_taxes[i].getName();
 							log.log(Level.SEVERE, p_Error);
 							fact = null;
 							facts.add(fact);
@@ -707,28 +662,86 @@ public class Doc_Invoice extends Doc
 						}
 						// Fin Xpande
 
-						BigDecimal amt = line.getAmtSource();
-						BigDecimal dAmt = null;
-						if (as.isTradeDiscountPosted() && !line.isItem())
+						FactLine tl;
+						if (m_taxes[i].getRate().signum() >= 0)
+							tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount(), null);
+						else
+							tl = fact.createLine(null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(),  null , m_taxes[i].getAmount().negate());
+
+						if (tl != null)
+							tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
+					}
+					//  Expense         DR
+					for (int i = 0; i < p_lines.length; i++)
+					{
+						DocLine line = p_lines[i];
+						boolean landedCost = landedCost(as, fact, line, true);
+						if (landedCost && as.isExplicitCostAdjustment())
 						{
-							BigDecimal discount = line.getDiscount();
-							if (discount != null && discount.signum() != 0)
-							{
-								amt = amt.add(discount);
-								dAmt = discount;
-								MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
-								fact.createLine (line, tradeDiscountReceived,
-										getC_Currency_ID(), null, dAmt);
+							fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+									getC_Currency_ID(), line.getAmtSource(), null);
+							//
+							FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+									getC_Currency_ID(), null, line.getAmtSource());
+							String desc = line.getDescription();
+							if (desc == null)
+								desc = "100%";
+							else
+								desc += " 100%";
+							fl.setDescription(desc);
+						}
+						if (!landedCost)
+						{
+							MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
+							if (line.isItem())
+								expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
+
+							// Xpande. Gabriel Vila. 21/03/2019.
+							// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+							if ((expense == null) || (expense.get_ID() <= 0)){
+								String msgCta = "P_Expense_Acct";
+								String msgProd = "";
+								if (line.isItem()){
+									msgCta = "P_InventoryClearing_Acct";
+								}
+								if (line.getM_Product_ID() > 0){
+									MProduct product = new MProduct(getCtx(), line.getM_Product_ID(), null);
+									msgProd = "Producto : " + product.getValue() + " - " + product.getName();
+								}
+								else if(line.getC_Charge_ID() > 0){
+									MCharge charge = new MCharge(getCtx(), line.getC_Charge_ID(), null);
+									msgProd = "Cargo : " + charge.getName();
+								}
+								p_Error = "No se obtuvo cuenta contable de compra (" + msgCta + "). " + msgProd;
+								log.log(Level.SEVERE, p_Error);
+								fact = null;
+								facts.add(fact);
+								return facts;
 							}
-						}
-						fact.createLine (line, expense,
-								getC_Currency_ID(), amt, null);
-						if (!line.isItem())
-						{
-							grossAmt = grossAmt.subtract(amt);
-							serviceAmt = serviceAmt.add(amt);
-						}
-						//
+							// Fin Xpande
+
+							BigDecimal amt = line.getAmtSource();
+							BigDecimal dAmt = null;
+							if (as.isTradeDiscountPosted() && !line.isItem())
+							{
+								BigDecimal discount = line.getDiscount();
+								if (discount != null && discount.signum() != 0)
+								{
+									amt = amt.add(discount);
+									dAmt = discount;
+									MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
+									fact.createLine (line, tradeDiscountReceived,
+											getC_Currency_ID(), null, dAmt);
+								}
+							}
+							fact.createLine (line, expense,
+									getC_Currency_ID(), amt, null);
+							if (!line.isItem())
+							{
+								grossAmt = grossAmt.subtract(amt);
+								serviceAmt = serviceAmt.add(amt);
+							}
+							//
 					/*if (line.getM_Product_ID() != 0
 						&& line.getProduct().isService())	//	otherwise Inv Matching
 						MCostDetail.createInvoice(as, line.getAD_Org_ID(),
@@ -736,17 +749,46 @@ public class Doc_Invoice extends Doc
 							line.get_ID(), 0,		//	No Cost Element
 							line.getAmtSource(), line.getQty(),
 							line.getDescription(), getTrxName());*/
+						}
+					}
+					//  Set Locations
+					FactLine[] fLines = fact.getLines();
+					for (int i = 0; i < fLines.length; i++)
+					{
+						if (fLines[i] != null)
+						{
+							fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
+							fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+						}
 					}
 				}
-				//  Set Locations
-				FactLine[] fLines = fact.getLines();
-				for (int i = 0; i < fLines.length; i++)
-				{
-					if (fLines[i] != null)
-					{
-						fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
-						fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+				else{
+					// Xpande. Gabriel Vila. 19/03/2020.
+					// Contabilización especial al DR para comprobantes que sin importar sus lineas, se contabilizan como carga inicial.
+					int productID = DB.getSQLValueEx(null, "select InitAP_Product_ID from z_acctconfig where value='General'");
+					if (productID <= 0){
+						p_Error = "No se obtuvo Producto de Contabilización Inicial en Configuraciones Contables";
+						log.log(Level.SEVERE, p_Error);
+						fact = null;
+						facts.add(fact);
+						return facts;
 					}
+					else{
+
+						int accountID = DB.getSQLValueEx(null, "select P_Expense_Acct from m_product_acct where m_product_id =" + productID);
+						MAccount expense =  MAccount.get(getCtx(), accountID);
+
+						if ((expense == null) || (expense.get_ID() <= 0)){
+							p_Error = "No se obtuvo cuenta contable de compra para el producto de contabilización inicial.";
+							log.log(Level.SEVERE, p_Error);
+							fact = null;
+							facts.add(fact);
+							return facts;
+						}
+
+						fact.createLine (null, expense, getC_Currency_ID(), grossAmt, null);
+					}
+					// Fin Xpande.
 				}
 
 			}
@@ -824,64 +866,72 @@ public class Doc_Invoice extends Doc
 			// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
 			// Agrego el IF y le meto dentro el codigo original de ADempiere
 			if (!this.doAsientoManual){
-				//  TaxCredit               CR
-				for (int i = 0; i < m_taxes.length; i++)
-				{
-					FactLine tl;
-					if (m_taxes[i].getRate().signum() >= 0)
-						tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), null, m_taxes[i].getAmount());
-					else
-						tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount().negate(),null);
 
-					if (tl != null)
-						tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
-				}
-				//  Expense                 CR
-				for (int i = 0; i < p_lines.length; i++)
-				{
-					DocLine line = p_lines[i];
-					boolean landedCost = landedCost(as, fact, line, false);
-					if (landedCost && as.isExplicitCostAdjustment())
+
+				// Xpande. Gabriel Vila. 19/03/2020.
+				// Si esta invoice esta marcada como comprobante de carga inicial, la contabilización al DR es distinta de la normal.
+				// Agrego este IF - ELSE
+				MInvoice invoice = (MInvoice)getPO();
+				if (!invoice.get_ValueAsBoolean("IsInitPosted")){
+
+					//  TaxCredit               CR
+					for (int i = 0; i < m_taxes.length; i++)
 					{
-						fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-								getC_Currency_ID(), null, line.getAmtSource());
-						//
-						FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
-								getC_Currency_ID(), line.getAmtSource(), null);
-						String desc = line.getDescription();
-						if (desc == null)
-							desc = "100%";
+						FactLine tl;
+						if (m_taxes[i].getRate().signum() >= 0)
+							tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), null, m_taxes[i].getAmount());
 						else
-							desc += " 100%";
-						fl.setDescription(desc);
+							tl = fact.createLine (null, m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as), getC_Currency_ID(), m_taxes[i].getAmount().negate(),null);
+
+						if (tl != null)
+							tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
 					}
-					if (!landedCost)
+					//  Expense                 CR
+					for (int i = 0; i < p_lines.length; i++)
 					{
-						MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
-						if (line.isItem())
-							expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
-						BigDecimal amt = line.getAmtSource();
-						BigDecimal dAmt = null;
-						if (as.isTradeDiscountPosted() && !line.isItem())
+						DocLine line = p_lines[i];
+						boolean landedCost = landedCost(as, fact, line, false);
+						if (landedCost && as.isExplicitCostAdjustment())
 						{
-							BigDecimal discount = line.getDiscount();
-							if (discount != null && discount.signum() != 0)
+							fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+									getC_Currency_ID(), null, line.getAmtSource());
+							//
+							FactLine fl = fact.createLine (line, line.getAccount(ProductCost.ACCTTYPE_P_Expense, as),
+									getC_Currency_ID(), line.getAmtSource(), null);
+							String desc = line.getDescription();
+							if (desc == null)
+								desc = "100%";
+							else
+								desc += " 100%";
+							fl.setDescription(desc);
+						}
+						if (!landedCost)
+						{
+							MAccount expense = line.getAccount(ProductCost.ACCTTYPE_P_Expense, as);
+							if (line.isItem())
+								expense = line.getAccount (ProductCost.ACCTTYPE_P_InventoryClearing, as);
+							BigDecimal amt = line.getAmtSource();
+							BigDecimal dAmt = null;
+							if (as.isTradeDiscountPosted() && !line.isItem())
 							{
-								amt = amt.add(discount);
-								dAmt = discount;
-								MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
-								fact.createLine (line, tradeDiscountReceived,
-										getC_Currency_ID(), dAmt, null);
+								BigDecimal discount = line.getDiscount();
+								if (discount != null && discount.signum() != 0)
+								{
+									amt = amt.add(discount);
+									dAmt = discount;
+									MAccount tradeDiscountReceived = line.getAccount(ProductCost.ACCTTYPE_P_TDiscountRec, as);
+									fact.createLine (line, tradeDiscountReceived,
+											getC_Currency_ID(), dAmt, null);
+								}
 							}
-						}
-						fact.createLine (line, expense,
-								getC_Currency_ID(), null, amt);
-						if (!line.isItem())
-						{
-							grossAmt = grossAmt.subtract(amt);
-							serviceAmt = serviceAmt.add(amt);
-						}
-						//
+							fact.createLine (line, expense,
+									getC_Currency_ID(), null, amt);
+							if (!line.isItem())
+							{
+								grossAmt = grossAmt.subtract(amt);
+								serviceAmt = serviceAmt.add(amt);
+							}
+							//
 					/*if (line.getM_Product_ID() != 0
 						&& line.getProduct().isService())	//	otherwise Inv Matching
 						MCostDetail.createInvoice(as, line.getAD_Org_ID(),
@@ -889,17 +939,47 @@ public class Doc_Invoice extends Doc
 							line.get_ID(), 0,		//	No Cost Element
 							line.getAmtSource().negate(), line.getQty(),
 							line.getDescription(), getTrxName());*/
+						}
 					}
-				}
-				//  Set Locations
-				FactLine[] fLines = fact.getLines();
-				for (int i = 0; i < fLines.length; i++)
-				{
-					if (fLines[i] != null)
+					//  Set Locations
+					FactLine[] fLines = fact.getLines();
+					for (int i = 0; i < fLines.length; i++)
 					{
-						fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
-						fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+						if (fLines[i] != null)
+						{
+							fLines[i].setLocationFromBPartner(getC_BPartner_Location_ID(), true);  //  from Loc
+							fLines[i].setLocationFromOrg(fLines[i].getAD_Org_ID(), false);    //  to Loc
+						}
 					}
+
+				}
+				else{
+					// Xpande. Gabriel Vila. 19/03/2020.
+					// Contabilización especial al DR para comprobantes que sin importar sus lineas, se contabilizan como carga inicial.
+					int productID = DB.getSQLValueEx(null, "select InitAP_Product_ID from z_acctconfig where value='General'");
+					if (productID <= 0){
+						p_Error = "No se obtuvo Producto de Contabilización Inicial en Configuraciones Contables";
+						log.log(Level.SEVERE, p_Error);
+						fact = null;
+						facts.add(fact);
+						return facts;
+					}
+					else{
+
+						int accountID = DB.getSQLValueEx(null, "select P_Expense_Acct from m_product_acct where m_product_id =" + productID);
+						MAccount expense =  MAccount.get(getCtx(), accountID);
+
+						if ((expense == null) || (expense.get_ID() <= 0)){
+							p_Error = "No se obtuvo cuenta contable de compra para el producto de contabilización inicial.";
+							log.log(Level.SEVERE, p_Error);
+							fact = null;
+							facts.add(fact);
+							return facts;
+						}
+
+						fact.createLine (null, expense, getC_Currency_ID(), null, grossAmt);
+					}
+					// Fin Xpande.
 				}
 			}
 			else{
