@@ -858,9 +858,18 @@ public class Doc_Invoice extends Doc
 		{
 			BigDecimal grossAmt = getAmount(Doc.AMTTYPE_Gross);
 			BigDecimal serviceAmt = Env.ZERO;
-			//  Charge                  CR
-			fact.createLine (null, getAccount(Doc.ACCTTYPE_Charge, as),
-				getC_Currency_ID(), null, getAmount(Doc.AMTTYPE_Charge));
+
+
+			// Xpande. Gabriel Vila. 19/03/2020.
+			// Si esta invoice esta marcada como comprobante de carga inicial, la contabilización al DR es distinta de la normal.
+			// Agrego este IF - ELSE
+			MInvoice invoice = (MInvoice)getPO();
+			if (!invoice.get_ValueAsBoolean("IsInitPosted")){
+				//  Charge                  CR
+				fact.createLine (null, getAccount(Doc.ACCTTYPE_Charge, as),
+						getC_Currency_ID(), null, getAmount(Doc.AMTTYPE_Charge));
+
+			}
 
 			// Xpande. Gabriel Vila. 28/11/2018.
 			// Si tengo flag de generar asiento manual segun lineas de asiento ingresadas por el usuario.
@@ -871,7 +880,6 @@ public class Doc_Invoice extends Doc
 				// Xpande. Gabriel Vila. 19/03/2020.
 				// Si esta invoice esta marcada como comprobante de carga inicial, la contabilización al DR es distinta de la normal.
 				// Agrego este IF - ELSE
-				MInvoice invoice = (MInvoice)getPO();
 				if (!invoice.get_ValueAsBoolean("IsInitPosted")){
 
 					//  TaxCredit               CR
