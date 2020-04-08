@@ -20,6 +20,7 @@ import org.compiere.model.MAccount;
 import org.compiere.model.MAcctSchema;
 import org.compiere.model.MJournal;
 import org.compiere.model.MJournalLine;
+import org.compiere.util.DB;
 import org.compiere.util.Env;
 
 import java.math.BigDecimal;
@@ -171,6 +172,8 @@ public class Doc_GLJournal extends Doc
 		//  create Fact Header
 		Fact fact = new Fact (this, as, m_PostingType);
 
+		MJournal journal = (MJournal)getPO();
+
 		//  GLJ
 		if (getDocumentType().equals(DOCTYPE_GLJournal))
 		{
@@ -200,6 +203,8 @@ public class Doc_GLJournal extends Doc
 
 					if (line != null){
 
+						line.setAD_Org_ID(journal.getAD_Org_ID());
+
 						// Instancio modelo de linea de asiento manual
 						MJournalLine journalLine = new MJournalLine(getCtx(), p_lines[i].get_ID(), this.getTrxName());
 						if ((journalLine != null) && (journalLine.get_ID() > 0)){
@@ -215,6 +220,27 @@ public class Doc_GLJournal extends Doc
 							if ((currencyRate != null) && (currencyRate.compareTo(Env.ZERO) > 0)){
 								line.set_ValueOfColumn("CurrencyRate", currencyRate);
 							}
+						}
+
+						line.saveEx();
+
+						// Impacto detalle contable en caso de tener seteado impuesto o retencion.
+						String strTaxID = "null", strRetencionID = "null";
+						if (journalLine.get_ValueAsInt("C_Tax_ID") > 0){
+							strTaxID = String.valueOf(journalLine.get_ValueAsInt("C_Tax_ID"));
+						}
+						if (journalLine.get_ValueAsInt("Z_RetencionSocio_ID") > 0){
+							strRetencionID = String.valueOf(journalLine.get_ValueAsInt("Z_RetencionSocio_ID"));
+						}
+
+						if ((!strTaxID.equalsIgnoreCase("null")) || (!strRetencionID.equalsIgnoreCase("null"))){
+							String action = " insert into z_acctfactdet (z_acctfactdet_id, ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
+									"fact_acct_id, c_tax_id, z_retencionsocio_id, gl_journal_id) ";
+							String sql = " select nextid(1000632,'N'), ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
+									line.get_ID() + ", " + strTaxID + ", " + strRetencionID + ", " + journal.get_ID() +
+									" from fact_acct " +
+									" where fact_acct_id =" + line.get_ID();
+							DB.executeUpdateEx(action + sql, getTrxName());
 						}
 					}
 					// Fin Xpande
