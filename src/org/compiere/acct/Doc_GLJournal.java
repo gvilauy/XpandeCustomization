@@ -16,10 +16,7 @@
  *****************************************************************************/
 package org.compiere.acct;
 
-import org.compiere.model.MAccount;
-import org.compiere.model.MAcctSchema;
-import org.compiere.model.MJournal;
-import org.compiere.model.MJournalLine;
+import org.compiere.model.*;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 
@@ -234,9 +231,12 @@ public class Doc_GLJournal extends Doc
 						}
 
 						if ((!strTaxID.equalsIgnoreCase("null")) || (!strRetencionID.equalsIgnoreCase("null"))){
+
+							MSequence sequence = MSequence.get(getCtx(), "Z_AcctFactDet");
+
 							String action = " insert into z_acctfactdet (z_acctfactdet_id, ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
 									"fact_acct_id, c_tax_id, z_retencionsocio_id, gl_journal_id) ";
-							String sql = " select nextid(1000632,'N'), ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
+							String sql = " select nextid(" + sequence.get_ID() + ",'N'), ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
 									line.get_ID() + ", " + strTaxID + ", " + strRetencionID + ", " + journal.get_ID() +
 									" from fact_acct " +
 									" where fact_acct_id =" + line.get_ID();
