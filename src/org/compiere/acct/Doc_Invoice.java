@@ -97,6 +97,17 @@ public class Doc_Invoice extends Doc
 		}
 		// Fin Xpande
 
+		// Xpande. Gabriel Vila. 30/04/2020.
+		// Seteo grupo de socio de negocio en caso de tenerlo
+		MBPartner partner = (MBPartner) invoice.getC_BPartner();
+		if ((partner != null) && (partner.get_ID() > 0)){
+			if (partner.getC_BP_Group_ID() > 0){
+				this.cBPGroupID = partner.getC_BP_Group_ID();
+			}
+		}
+		// Fin Xpande
+
+
 		//	Amounts
 		setAmount(Doc.AMTTYPE_Gross, invoice.getGrandTotal());
 		setAmount(Doc.AMTTYPE_Net, invoice.getTotalLines());

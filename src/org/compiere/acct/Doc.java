@@ -1297,6 +1297,13 @@ public abstract class Doc
 	public static final int 	ACCTYPE_MP_EmiPendEnt = 505;
 	// Fin Xpande
 
+	// Xpande. Gabriel Vila. 30/04/2020.
+
+	// ID de grupo de socio de negocio para contabilización
+	public int cBPGroupID = -1;
+
+	// Fin Xpande
+
 	/**
 	 *	Get the Valid Combination id for Accounting Schema
 	 *  @param AcctType see ACCTTYPE_*
@@ -1318,6 +1325,7 @@ public abstract class Doc
 		// Xpande. Gabriel Vila. 18/11/2018.
 		// Nueva variable para gestionar segunda consulta en caso que la primera no de resultados.
 		String sql2 = null;
+		String sql3 = null;
 		// Fin Xpande.
 
 		/**	Account Type - Invoice */
@@ -1341,10 +1349,18 @@ public abstract class Doc
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
 
 			if (getC_Currency_ID() == as.getC_Currency_ID()){
-				sql2 = " select V_Liability_Acct from c_acctschema_default where c_acctschema_id =?";
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Liability_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Liability_Acct from c_acctschema_default where c_acctschema_id =?";
 			}
 			else{
-				sql2 = " select V_Liability_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Liability_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Liability_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
 						" AND C_AcctSchema_ID =?";
 			}
 			// Fin Xpande
@@ -1360,10 +1376,18 @@ public abstract class Doc
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
 
 			if (getC_Currency_ID() == as.getC_Currency_ID()){
-				sql2 = " select V_Liability_Services_Acct from c_acctschema_default where c_acctschema_id =?";
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Liability_Services_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Liability_Services_Acct from c_acctschema_default where c_acctschema_id =?";
 			}
 			else{
-				sql2 = " select V_Liability_Services_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Liability_Services_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Liability_Services_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
 						" AND C_AcctSchema_ID =?";
 			}
 			// Fin Xpande.
@@ -1380,10 +1404,18 @@ public abstract class Doc
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
 
 			if (getC_Currency_ID() == as.getC_Currency_ID()){
-				sql2 = " select C_Receivable_Acct from c_acctschema_default where c_acctschema_id =?";
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT C_Receivable_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select C_Receivable_Acct from c_acctschema_default where c_acctschema_id =?";
 			}
 			else{
-				sql2 = " select C_Receivable_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT C_Receivable_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select C_Receivable_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
 						" AND C_AcctSchema_ID =?";
 			}
 			// Fin Xpande.
@@ -1404,10 +1436,18 @@ public abstract class Doc
 					" AND C_BPartner_ID=? AND C_AcctSchema_ID=?";
 
 			if (getC_Currency_ID() == as.getC_Currency_ID()){
-				sql2 = " select V_Prepayment_Acct from c_acctschema_default where c_acctschema_id =?";
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Prepayment_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Prepayment_Acct from c_acctschema_default where c_acctschema_id =?";
 			}
 			else{
-				sql2 = " select V_Prepayment_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+				if (this.cBPGroupID > 0){
+					sql2 = " SELECT V_Prepayment_Acct FROM C_BP_Group_Acct WHERE C_Currency_ID =" + getC_Currency_ID() +
+							" AND C_BP_Group_ID=" + cBPGroupID + " AND C_AcctSchema_ID=?";
+				}
+				sql3 = " select V_Prepayment_Acct from z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
 						" AND C_AcctSchema_ID =?";
 			}
 			// Fin Xpande.
@@ -1611,6 +1651,22 @@ public abstract class Doc
 					rs = null; pstmt = null;
 
 					pstmt = DB.prepareStatement (sql2, null);
+					pstmt.setInt(1, as.getC_AcctSchema_ID());
+
+					rs = pstmt.executeQuery ();
+					if (rs.next()){
+						Account_ID = rs.getInt(1);
+					}
+				}
+			}
+			// Si sigo sin tener cuenta, ejecuto tercer consulta.
+			if (Account_ID <= 0){
+				if (sql3 != null){
+
+					DB.close(rs, pstmt);
+					rs = null; pstmt = null;
+
+					pstmt = DB.prepareStatement (sql3, null);
 					pstmt.setInt(1, as.getC_AcctSchema_ID());
 
 					rs = pstmt.executeQuery ();
