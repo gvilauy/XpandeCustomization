@@ -157,6 +157,30 @@ public class Doc_Invoice extends Doc
 							fl1.setC_BPartner_ID(cBPartnerIDAux);
 						}
 					}
+
+					fl1.saveEx();
+
+					// Impacto detalle contable en caso de tener seteado impuesto o retencion.
+					String strTaxID = "null", strRetencionID = "null";
+					if (rs.getInt("C_Tax_ID") > 0){
+						strTaxID = String.valueOf(rs.getInt("C_Tax_ID"));
+					}
+					if (rs.getInt("Z_RetencionSocio_ID") > 0){
+						strRetencionID = String.valueOf(rs.getInt("Z_RetencionSocio_ID"));
+					}
+
+					if ((!strTaxID.equalsIgnoreCase("null")) || (!strRetencionID.equalsIgnoreCase("null"))){
+
+						MSequence sequence = MSequence.get(getCtx(), "Z_AcctFactDet");
+
+						String action = " insert into z_acctfactdet (z_acctfactdet_id, ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
+								"fact_acct_id, c_tax_id, z_retencionsocio_id, c_invoice_id) ";
+						sql = " select nextid(" + sequence.get_ID() + ",'N'), ad_client_id, ad_org_id, created, createdby, updated, updatedby, isactive, " +
+								fl1.get_ID() + ", " + strTaxID + ", " + strRetencionID + ", " + invoice.get_ID() +
+								" from fact_acct " +
+								" where fact_acct_id =" + fl1.get_ID();
+						DB.executeUpdateEx(action + sql, getTrxName());
+					}
 				}
 			}
 		}
