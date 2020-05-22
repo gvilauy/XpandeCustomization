@@ -2648,7 +2648,28 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 
 			// Cabezal de InOut
 			String isSOTrx = (this.isSOTrx()) ? "Y" : "N";
-			String whereClause = " docbasetype='MMS' and isdefault='Y' and issotrx='" + isSOTrx + "'" +
+
+			// Tipo de documento y movimiento para InOut, según tipo de documento de Invoice
+			String docBaseTypeInv = ((MDocType) this.getC_DocTypeTarget()).getDocBaseType();
+			String docBaseTypeInOut = null, movementType = null;
+			if (docBaseTypeInv.equalsIgnoreCase("ARI")){
+				docBaseTypeInOut ="MMS";
+				movementType = X_M_InOut.MOVEMENTTYPE_CustomerShipment;
+			}
+			else if (docBaseTypeInv.equalsIgnoreCase("ARC")){
+				docBaseTypeInOut ="MMR";
+				movementType = X_M_InOut.MOVEMENTTYPE_CustomerReturns;
+			}
+			else if (docBaseTypeInv.equalsIgnoreCase("API")){
+				docBaseTypeInOut ="MMR";
+				movementType = X_M_InOut.MOVEMENTTYPE_VendorReceipts;
+			}
+			else if (docBaseTypeInv.equalsIgnoreCase("APC")){
+				docBaseTypeInOut ="MMS";
+				movementType = X_M_InOut.MOVEMENTTYPE_VendorReturns;
+			}
+
+			String whereClause = " docbasetype ='" + docBaseTypeInOut + "' and isdefault='Y' and issotrx='" + isSOTrx + "'" +
 					" and ad_client_id =" + this.getAD_Client_ID() + " and isactive='Y' ";
 
 			int[] docTypeIDs	= MDocType.getAllIDs(I_C_DocType.Table_Name, whereClause, null);
@@ -2665,12 +2686,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			MWarehouse warehouse = new MWarehouse(getCtx(), warehouseList[0].get_ID(), null);
 
 			MInOut inOut = new MInOut(this, docType.get_ID(), this.getDateInvoiced(), warehouse.get_ID());
-			if (this.isSOTrx()){
-				inOut.setMovementType(X_M_InOut.MOVEMENTTYPE_CustomerShipment);
-			}
-			else{
-				inOut.setMovementType(X_M_InOut.MOVEMENTTYPE_VendorReceipts);
-			}
+			inOut.setMovementType(movementType);
 			inOut.setC_BPartner_ID(this.getC_BPartner_ID());
 			inOut.setC_BPartner_Location_ID(this.getC_BPartner_Location_ID());
 			inOut.setMovementDate(this.getDateInvoiced());
@@ -2684,21 +2700,26 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				MInvoiceLine invoiceLine = lines[i];
 
 				if (invoiceLine.getM_Product_ID() > 0){
-					MInOutLine inOutLine = new MInOutLine(inOut);
-					inOutLine.setM_Warehouse_ID(warehouse.get_ID());
-					inOutLine.setM_Product_ID(invoiceLine.getM_Product_ID());
-					inOutLine.setMovementQty(invoiceLine.getQtyInvoiced());
-					inOutLine.setC_UOM_ID(invoiceLine.getC_UOM_ID());
-					inOutLine.setQtyEntered(invoiceLine.getQtyEntered());
-					inOutLine.setAD_Org_ID(inOut.getAD_Org_ID());
-					inOutLine.setM_AttributeSetInstance_ID(invoiceLine.getM_AttributeSetInstance_ID());
-					inOutLine.saveEx();
 
-					action = " update c_invoiceline set m_inoutline_id =" + inOutLine.get_ID() +
-							 " where c_invoiceline_id =" + invoiceLine.get_ID();
-					DB.executeUpdateEx(action, get_TrxName());
+					// Si este producto esta configurado como almacenable.
+					MProduct product = (MProduct) invoiceLine.getM_Product();
+					if (product.isStocked()){
+						MInOutLine inOutLine = new MInOutLine(inOut);
+						inOutLine.setM_Warehouse_ID(warehouse.get_ID());
+						inOutLine.setM_Product_ID(invoiceLine.getM_Product_ID());
+						inOutLine.setMovementQty(invoiceLine.getQtyInvoiced());
+						inOutLine.setC_UOM_ID(invoiceLine.getC_UOM_ID());
+						inOutLine.setQtyEntered(invoiceLine.getQtyEntered());
+						inOutLine.setAD_Org_ID(inOut.getAD_Org_ID());
+						inOutLine.setM_AttributeSetInstance_ID(invoiceLine.getM_AttributeSetInstance_ID());
+						inOutLine.saveEx();
 
-					contador++;
+						action = " update c_invoiceline set m_inoutline_id =" + inOutLine.get_ID() +
+								" where c_invoiceline_id =" + invoiceLine.get_ID();
+						DB.executeUpdateEx(action, get_TrxName());
+
+						contador++;
+					}
 				}
 			}
 
