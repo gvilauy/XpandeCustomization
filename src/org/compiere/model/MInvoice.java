@@ -2684,6 +2684,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				return "Falta parametrizar almacén para esta Organización.";
 			}
 			MWarehouse warehouse = new MWarehouse(getCtx(), warehouseList[0].get_ID(), null);
+			MLocator locator = warehouse.getDefaultLocator();
 
 			MInOut inOut = new MInOut(this, docType.get_ID(), this.getDateInvoiced(), warehouse.get_ID());
 			inOut.setMovementType(movementType);
@@ -2706,6 +2707,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 					if (product.isStocked()){
 						MInOutLine inOutLine = new MInOutLine(inOut);
 						inOutLine.setM_Warehouse_ID(warehouse.get_ID());
+						inOutLine.setM_Locator_ID(locator.get_ID());
 						inOutLine.setM_Product_ID(invoiceLine.getM_Product_ID());
 						inOutLine.setMovementQty(invoiceLine.getQtyInvoiced());
 						inOutLine.setC_UOM_ID(invoiceLine.getC_UOM_ID());
