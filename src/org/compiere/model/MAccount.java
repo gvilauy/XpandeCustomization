@@ -16,7 +16,9 @@
  *****************************************************************************/
 package org.compiere.model;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.compiere.util.CLogger;
+import org.compiere.util.DB;
 import org.compiere.util.Env;
 
 import java.sql.ResultSet;
@@ -964,6 +966,39 @@ public class MAccount extends X_C_ValidCombination
 		System.out.println(acct2);
 		
 	}	//	main
-	
+
+	/***
+	 * Obtiene y retorna modelo según ID de compañia y cuenta contable.
+	 * Xpande. Created by Gabriel Vila on 6/17/20.
+	 * @param ctx
+	 * @param adClientID
+	 * @param accountID
+	 * @param trxName
+	 * @return
+	 */
+	public static MAccount getByAccount(Properties ctx, int adClientID, int accountID, String trxName){
+
+		MAccount model = null;
+
+		try{
+
+			String sql = " select max(c_validcombination_id) " +
+							" from c_validcombination " +
+							" where ad_client_id =" + adClientID +
+							" and account_id =" + accountID;
+			int validCombinationID = DB.getSQLValueEx(trxName, sql);
+
+			if (validCombinationID > 0){
+				model = new MAccount(ctx, validCombinationID, trxName);
+			}
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+
+		return model;
+	}
+
+
 }	//	Account
 

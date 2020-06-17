@@ -1295,6 +1295,7 @@ public abstract class Doc
 	public static final int 	ACCTYPE_RT_RetencionEmitida = 503;
 	public static final int 	ACCTYPE_RT_RetencionRecibida = 504;
 	public static final int 	ACCTYPE_MP_EmiPendEnt = 505;
+	public static final int 	ACCTYPE_CJ_ResEjercicio = 506;
 	// Fin Xpande
 
 	// Xpande. Gabriel Vila. 30/04/2020.
