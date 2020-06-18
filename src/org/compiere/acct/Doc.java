@@ -1610,6 +1610,11 @@ public abstract class Doc
 			}
 			para_1 = -1;
 		}
+		else if (AcctType == ACCTYPE_CJ_ResEjercicio)
+		{
+			sql = "SELECT CJ_ResultadoEjercicio_Acct FROM c_acctschema_default WHERE C_AcctSchema_ID=?";
+			para_1 = -1;
+		}
 		// Fin Xpande
 
 		else
