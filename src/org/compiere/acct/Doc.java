@@ -180,7 +180,12 @@ public abstract class Doc
 	/**	Document Status         */
 	public static final String 	STATUS_Error            = "E";
 
-	
+	// Xpande. Gabriel Vila. 08/07/2020.
+	// Atributo de clase para mejor manejo de mensajes de error por no contabilización.
+	StringBuilder stbMensajeError = null;
+	// Fin Xpande.
+
+
 	/**
 	 *  Create Posting document
 	 *	@param ass accounting schema
@@ -689,6 +694,19 @@ public abstract class Doc
 			note.setTextMsg(Text.toString());
 			note.saveEx();
 			p_Error = Text.toString();
+
+			// Xpande. Gabriel Vila. 08/07/2020.
+			// Si tengo seteado un mensaje de error mas claro, lo considero.
+			if (this.stbMensajeError != null){
+				if (p_Error != null){
+					p_Error +="\n" + this.stbMensajeError.toString();
+				}
+				else{
+					p_Error = this.stbMensajeError.toString();
+				}
+			}
+			// Fin Xpande
+
 		}
 
 		//  dispose facts
@@ -774,8 +792,28 @@ public abstract class Doc
 			if (!fact.isSourceBalanced())
 			{
 				fact.balanceSource();
+
+				// Xpande. Gabriel Vila. 08/07/2020.
+				// Cuando no balancea el asiento, mejoro el mensaje de error para poder determinar mejor la causa.
+				// Comento y sustituyo.
+
+				/*
 				if (!fact.isSourceBalanced())
 					return STATUS_NotBalanced;
+				*/
+
+				if (!fact.isSourceBalanced()){
+
+					// Armo mensaje de error mejor para determinar porque el asiento no balancea.
+					this.stbMensajeError = new StringBuilder();
+
+					FactLine[] factLines = fact.getLines();
+					for (int i = 0; i < factLines.length; i++){
+						this.stbMensajeError.append(factLines[i].toString() + "\n");
+					}
+					return STATUS_NotBalanced;
+				}
+				// Fin Xpande
 			}
 
 			//  balanceSegments
