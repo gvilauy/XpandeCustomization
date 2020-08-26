@@ -2178,6 +2178,13 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (m_processMsg != null)
 			return false;
 
+		// Xpande. Gabriel Vila. 26/08/2020.
+		// Se permite anular aquellos comprobantes de venta cuyos CFE fueron rechazados posteriormente por
+		// por el organismo tributario.
+		// PAra ello comento código original y sustituyo.
+		// Al igual que en la reactivación, la anulación se hace en las clases Validators.
+
+		/*
 		if (DOCSTATUS_Closed.equals(getDocStatus())
 			|| DOCSTATUS_Reversed.equals(getDocStatus())
 			|| DOCSTATUS_Voided.equals(getDocStatus()))
@@ -2226,15 +2233,37 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		{
 			return reverseCorrectIt();
 		}
+		*/
+
+		// Verifico período contable y elimino contabilidad.
+		MPeriod.testPeriodOpen(getCtx(), this.getDateAcct(), this.getC_DocTypeTarget_ID(), this.getAD_Org_ID());
+		MFactAcct.deleteEx(this.get_Table_ID(), this.get_ID(), get_TrxName());
+
+		// Fin Xpande.
 
 		// After Void
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_VOID);
 		if (m_processMsg != null)
 			return false;
 
+		// Xpande. Gabriel Vila. 26/08/2020.
+		// Comento y sustituyo.
+
+		/*
 		setProcessed(true);
 		setDocAction(DOCACTION_None);
+		*/
+
+		// Me aseguro estados de documento al anular
+		this.setProcessed(true);
+		this.setPosted(true);
+		this.setDocStatus(DOCSTATUS_Voided);
+		this.setDocAction(DOCACTION_None);
+
+		// Fin Xpande
+
 		return true;
+
 	}	//	voidIt
 
 	/**
@@ -2439,6 +2468,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (m_processMsg != null)
 			return false;
 
+		// Verifico período contable y elimino contabilidad.
 		MPeriod.testPeriodOpen(getCtx(), this.getDateAcct(), this.getC_DocTypeTarget_ID(), this.getAD_Org_ID());
 		MFactAcct.deleteEx(this.get_Table_ID(), this.get_ID(), get_TrxName());
 
