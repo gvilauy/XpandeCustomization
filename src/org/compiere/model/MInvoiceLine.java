@@ -518,8 +518,10 @@ public class MInvoiceLine extends X_C_InvoiceLine
 						else{
 							// Es literal E pero no esta seteado la tasa en el configurador comercial. Sigo y veo si tiene impuesto especial de compra.
 							MTaxCategory taxCategory = (MTaxCategory) getProduct().getC_TaxCategory();
-							if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
-								taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+							if (!this.getParent().isSOTrx()){
+								if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
+									taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+								}
 							}
 							stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
 						}
@@ -529,8 +531,10 @@ public class MInvoiceLine extends X_C_InvoiceLine
 				// Por lo tanto aca considero esta posibilidad.
 				if (!esLiteralE){
 					MTaxCategory taxCategory = (MTaxCategory) getProduct().getC_TaxCategory();
-					if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
-						taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+					if (!this.getParent().isSOTrx()){
+						if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
+							taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
+						}
 					}
 					stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
 				}
