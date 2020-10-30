@@ -913,6 +913,21 @@ public class MInvoiceLine extends X_C_InvoiceLine
 		if (getTaxAmt().compareTo(Env.ZERO) == 0)
 			setTaxAmt();
 		//
+
+		// Xpande. Gabriel Vila. 30/10/2020.
+		// Por las dudas me aseguro que para facturas de venta con impuesto incluído, el valor de LineNetAmt = LineTotalAmt
+		// Si la invoice tiene impuesto incluído en el precio, para comprobantes de venta, me aseguro que
+		// el valor de LineNetAmt = LineTotalAmt
+		if (this.getParent().isSOTrx()){
+			if (this.getParent().isTaxIncluded()){
+				if (this.getLineNetAmt().compareTo(this.getLineTotalAmt()) != 0){
+					this.setLineNetAmt(this.getLineTotalAmt());
+				}
+			}
+		}
+		// Fin Xpande.
+
+
 		return true;
 	}	//	beforeSave
 
@@ -981,6 +996,7 @@ public class MInvoiceLine extends X_C_InvoiceLine
 			if (!updateInvoiceTax(true))
 				return false;
 		}
+
 		return updateHeaderTax();
 	}	//	afterSave
 
