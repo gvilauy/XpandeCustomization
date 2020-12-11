@@ -88,7 +88,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
 				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
 
-			options[newIndex++] = DocumentEngine.ACTION_Prepare;
+			//options[newIndex++] = DocumentEngine.ACTION_Prepare;
 			options[newIndex++] = DocumentEngine.ACTION_Complete;
 
 		}
