@@ -89,6 +89,7 @@ public class Doc_Invoice extends Doc
 		setDateDoc(invoice.getDateInvoiced());
 		setIsTaxIncluded(invoice.isTaxIncluded());
 		setC_BPartner_ID(invoice.getC_BPartner_ID());
+		setC_Currency_ID(invoice.getC_Currency_ID());
 
 		// Xpande. Gabriel Vila. 28/11/2018. Issue #3000
 		// Seteo flag de hacer o no asiento manual indicado por el usuario para este documento
@@ -441,85 +442,65 @@ public class Doc_Invoice extends Doc
 		if (getDocumentType().equals(DOCTYPE_ARInvoice) 
 			|| getDocumentType().equals(DOCTYPE_ARProForma))
 		{
-
 			BigDecimal grossAmt = getAmount(Doc.AMTTYPE_Gross);
 			BigDecimal serviceAmt = Env.ZERO;
 
-			// Xpande. Gabriel Vila. 04/04/2019.
-			// Defino flag para contabilizar normalmente o no el credito.
-			boolean contabilizaCR = true;
-
-			/*
-			// Si aplica facturación entre locales, no hago la contabilización normal para Credito.
-			if (this.contabilizaVtaEntreLocales(fact, grossAmt, true)){
-				contabilizaCR = false;
+			//  Header Charge           CR
+			BigDecimal amt = getAmount(Doc.AMTTYPE_Charge);
+			if (amt != null && amt.signum() != 0)
+				fact.createLine(null, getAccount(Doc.ACCTTYPE_Charge, as),
+						getC_Currency_ID(), null, amt);
+			//  TaxDue                  CR
+			for (int i = 0; i < m_taxes.length; i++)
+			{
+				amt = m_taxes[i].getAmount();
+				if (amt != null)
+				{
+					FactLine tl = fact.createLine(null, m_taxes[i].getAccount(DocTax.ACCTTYPE_TaxDue, as),
+							getC_Currency_ID(), null, amt);
+					if (tl != null){
+						tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
+					}
+					// Xpande. Gabriel Vila. 03/10/2019.
+					// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
+					else {
+						MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
+						if ((accountTax == null) || (accountTax.get_ID() <= 0)) {
+							p_Error = "No se obtuvo cuenta contable de venta para impuesto : " + m_taxes[i].getName();
+							log.log(Level.SEVERE, p_Error);
+							fact = null;
+							facts.add(fact);
+							return facts;
+						}
+					}
+					// Fin Xpande
+				}
 			}
-			// Fin Xpande.
-			 */
-
-			// Xpande. Gabriel Vila. 04/04/2019.
-			// Si contabilizo el crédito normalmente
-			if (contabilizaCR){
-				// Fin Xpande.
-
-				//  Header Charge           CR
-				BigDecimal amt = getAmount(Doc.AMTTYPE_Charge);
-				if (amt != null && amt.signum() != 0)
-					fact.createLine(null, getAccount(Doc.ACCTTYPE_Charge, as),
-							getC_Currency_ID(), null, amt);
-				//  TaxDue                  CR
-				for (int i = 0; i < m_taxes.length; i++)
+			//  Revenue                 CR
+			for (int i = 0; i < p_lines.length; i++)
+			{
+				amt = p_lines[i].getAmtSource();
+				BigDecimal dAmt = null;
+				if (as.isTradeDiscountPosted())
 				{
-					amt = m_taxes[i].getAmount();
-					if (amt != null)
+					BigDecimal discount = p_lines[i].getDiscount();
+					if (discount != null && discount.signum() != 0)
 					{
-						FactLine tl = fact.createLine(null, m_taxes[i].getAccount(DocTax.ACCTTYPE_TaxDue, as),
-								getC_Currency_ID(), null, amt);
-						if (tl != null){
-							tl.setC_Tax_ID(m_taxes[i].getC_Tax_ID());
-						}
-						// Xpande. Gabriel Vila. 03/10/2019.
-						// Mejoro mensajes de error cuando no se encuentra la cuenta parametrizada
-						else {
-							MAccount accountTax = m_taxes[i].getAccount(m_taxes[i].getAPTaxType(), as);
-							if ((accountTax == null) || (accountTax.get_ID() <= 0)) {
-								p_Error = "No se obtuvo cuenta contable de venta para impuesto : " + m_taxes[i].getName();
-								log.log(Level.SEVERE, p_Error);
-								fact = null;
-								facts.add(fact);
-								return facts;
-							}
-						}
-						// Fin Xpande
+						amt = amt.add(discount);
+						dAmt = discount;
+						fact.createLine (p_lines[i],
+								p_lines[i].getAccount(ProductCost.ACCTTYPE_P_TDiscountGrant, as),
+								getC_Currency_ID(), dAmt, null);
 					}
 				}
-				//  Revenue                 CR
-				for (int i = 0; i < p_lines.length; i++)
+				fact.createLine (p_lines[i],
+						p_lines[i].getAccount(ProductCost.ACCTTYPE_P_Revenue, as),
+						getC_Currency_ID(), null, amt);
+				if (!p_lines[i].isItem())
 				{
-					amt = p_lines[i].getAmtSource();
-					BigDecimal dAmt = null;
-					if (as.isTradeDiscountPosted())
-					{
-						BigDecimal discount = p_lines[i].getDiscount();
-						if (discount != null && discount.signum() != 0)
-						{
-							amt = amt.add(discount);
-							dAmt = discount;
-							fact.createLine (p_lines[i],
-									p_lines[i].getAccount(ProductCost.ACCTTYPE_P_TDiscountGrant, as),
-									getC_Currency_ID(), dAmt, null);
-						}
-					}
-					fact.createLine (p_lines[i],
-							p_lines[i].getAccount(ProductCost.ACCTTYPE_P_Revenue, as),
-							getC_Currency_ID(), null, amt);
-					if (!p_lines[i].isItem())
-					{
-						grossAmt = grossAmt.subtract(amt);
-						serviceAmt = serviceAmt.add(amt);
-					}
+					grossAmt = grossAmt.subtract(amt);
+					serviceAmt = serviceAmt.add(amt);
 				}
-
 			}
 
 			//  Set Locations
