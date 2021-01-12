@@ -2319,6 +2319,9 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 	 */
 	public boolean reActivateIt()
 	{
+		// Xpande. Gabriel Vila. 12/01/2021.
+		// Este metodo es completamente customizado.
+
 		log.info(toString());
 		// Before reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_REACTIVATE);

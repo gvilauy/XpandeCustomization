@@ -432,7 +432,7 @@ public class MInventory extends X_M_Inventory implements DocAction, DocOptions {
 			if (!line.isActive())
 				continue;
 
-			MProduct product = line.getProduct();	
+			MProduct product = line.getProduct();
 
 			//Get Quantity Internal Use
 			BigDecimal qtyDiff = line.getQtyInternalUse().negate();
@@ -902,12 +902,94 @@ public class MInventory extends X_M_Inventory implements DocAction, DocOptions {
 	 */
 	public boolean reActivateIt()
 	{
+		// Xpande. Gabriel Vila. 12/01/2021.
+		// Este metodo es completamente customizado.
+
 		log.info(toString());
 		// Before reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_BEFORE_REACTIVATE);
 		if (m_processMsg != null)
-			return false;	
-		
+			return false;
+
+		MInventoryLine[] lines = getLines(false);
+		for (MInventoryLine line : lines)
+		{
+			if (!line.isActive())
+				continue;
+
+			MProduct product = line.getProduct();
+
+			//Get Quantity Internal Use
+			BigDecimal qtyDiff = line.getQtyInternalUse().negate();
+			//If Quantity Internal Use = Zero Then Physical Inventory  Else Internal Use Inventory
+			if (qtyDiff.signum() == 0)
+			{
+				qtyDiff = line.getQtyCount().subtract(line.getQtyBook());
+				//If Quantity Count minus Quantity Book = Zero, then no change in Inventory
+				if (qtyDiff.signum() == 0)
+					continue;
+			}
+
+			//Ignore the Material Policy when is Reverse Correction
+			if(!isReversal())
+				checkMaterialPolicy(line, qtyDiff);
+
+			//	Stock Movement - Counterpart MOrder.reserveStock
+			if (product != null
+					&& product.isStocked() )
+			{
+				log.fine("Material Transaction");
+				MTransaction mtrx = null;
+
+				//If AttributeSetInstance = Zero then create new  AttributeSetInstance use Inventory Line MA else use current AttributeSetInstance
+				if (line.getM_AttributeSetInstance_ID() == 0 || qtyDiff.compareTo(Env.ZERO) == 0)
+				{
+					MInventoryLineMA mas[] = MInventoryLineMA.get(getCtx(), line.getM_InventoryLine_ID(), get_TrxName());
+
+					for (int j = 0; j < mas.length; j++)
+					{
+						MInventoryLineMA ma = mas[j];
+						BigDecimal QtyMA = ma.getMovementQty();
+						BigDecimal QtyNew = QtyMA.add(qtyDiff);
+						log.fine("Diff=" + qtyDiff
+								+ " - Instance OnHand=" + QtyMA + "->" + QtyNew);
+
+						if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
+								line.getM_Locator_ID(),
+								line.getM_Product_ID(),
+								ma.getM_AttributeSetInstance_ID(), 0,
+								QtyMA, Env.ZERO, Env.ZERO, get_TrxName()))
+						{
+							m_processMsg = "Cannot correct Inventory (MA)";
+							return false;
+						}
+						qtyDiff = QtyNew;
+					}
+				}
+
+				// Fallback
+				if (mtrx == null)
+				{
+					//Fallback: Update Storage - see also VMatch.createMatchRecord
+					if (!MStorage.add(getCtx(), getM_Warehouse_ID(),
+							line.getM_Locator_ID(),
+							line.getM_Product_ID(),
+							line.getM_AttributeSetInstance_ID(), 0,
+							qtyDiff.negate(), Env.ZERO, Env.ZERO, get_TrxName()))
+					{
+						m_processMsg = "Cannot correct Inventory (MA)";
+						return false;
+					}
+
+					// Eliminar info en m_transaction
+					String action = " delete from m_transaction where m_inventoryline_id =" + line.get_ID();
+					DB.executeUpdateEx(action, get_TrxName());
+
+				}	//	Fallback
+			}	//	stock movement
+
+		}	//	for all lines
+
 		// After reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_REACTIVATE);
 		if (m_processMsg != null)
