@@ -374,9 +374,23 @@ public class MInvoiceLine extends X_C_InvoiceLine
 		//
 		if (getQtyEntered().compareTo(getQtyInvoiced()) == 0)
 			setPriceEntered(getPriceActual());
-		else
-			setPriceEntered(getPriceActual().multiply(getQtyInvoiced()
-				.divide(getQtyEntered(), 6, BigDecimal.ROUND_HALF_UP)));	//	precision
+		else{
+
+			// Xpande. Gabriel Vila. 03/02/2021.
+			// Me cubro de deivision por cero.
+			// Comento código original y sustituyo.
+
+			//setPriceEntered(getPriceActual().multiply(getQtyInvoiced().divide(getQtyEntered(), 6, BigDecimal.ROUND_HALF_UP)));	//	precision
+
+			if ((getQtyEntered() != null) && (getQtyEntered().compareTo(Env.ZERO) > 0)){
+				setPriceEntered(getPriceActual().multiply(getQtyInvoiced().divide(getQtyEntered(), 6, BigDecimal.ROUND_HALF_UP)));	//	precision
+			}
+			else{
+				setPriceEntered(getPriceActual());
+			}
+			// Fin Xpande
+
+		}
 		//
 		if (getC_UOM_ID() == 0)
 			setC_UOM_ID(m_productPricing.getC_UOM_ID());
