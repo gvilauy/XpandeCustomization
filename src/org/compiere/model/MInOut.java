@@ -1143,12 +1143,23 @@ public class MInOut extends X_M_InOut implements DocAction, DocOptions
 		    m_processMsg = "@OrderOrRMA@";
 		    return DocAction.STATUS_Invalid;
 		}
+
+
+		// Xpande. Gabriel Vila. 22/02/2021.
+		// No estamos contabilizando documentos en la InOut.
+		// Comento lineas de chequeo de período.
+
+		/*
 		//	Std Period open?
 		if (!MPeriod.isOpen(getCtx(), getDateAcct(), dt.getDocBaseType(), getAD_Org_ID()))
 		{
 			m_processMsg = "@PeriodClosed@";
 			return DocAction.STATUS_Invalid;
 		}
+		*/
+
+		// Fin Xpande.
+
 
 		//	Credit Check
 		if (isSOTrx() && !isReversal())
