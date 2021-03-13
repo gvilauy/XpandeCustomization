@@ -2776,7 +2776,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		    throw new AdempiereException(e);
 		}
 
-		return message;
+		return null;
 	}
 
 	/***
