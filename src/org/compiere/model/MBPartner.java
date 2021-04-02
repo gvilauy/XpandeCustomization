@@ -16,6 +16,7 @@
  *****************************************************************************/
 package org.compiere.model;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -1076,5 +1077,24 @@ public class MBPartner extends X_C_BPartner
 			delete_Tree(MTree_Base.TREETYPE_BPartner);
 		return success;
 	}	//	afterDelete
+
+	/***
+	 * Obtiene estado de creito de venta avtual para este socio de negocio.
+	 * Xpande. Created by Gabriel Vila on 4/2/21.
+	 * @return
+	 */
+	public String getSOCreditStatusActual() {
+
+		String statusCredito = X_C_BPartner.SOCREDITSTATUS_CreditOK;
+
+		try{
+
+		}
+		catch (Exception e){
+		    throw new AdempiereException(e);
+		}
+
+		return statusCredito;
+	}
 
 }	//	MBPartner

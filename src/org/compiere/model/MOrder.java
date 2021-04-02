@@ -1202,12 +1202,19 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 			return DocAction.STATUS_Invalid;
 		MDocType dt = MDocType.get(getCtx(), getC_DocTypeTarget_ID());
 
+		// Xpande. Gabriel Vila. 02/04/2021.
+		// Por ahora no considero contabilización en ordenes de venta y compra.
+		// Comento código
+
+		/*
 		//	Std Period open?
 		if (!MPeriod.isOpen(getCtx(), getDateAcct(), dt.getDocBaseType(), getAD_Org_ID()))
 		{
 			m_processMsg = "@PeriodClosed@";
 			return DocAction.STATUS_Invalid;
 		}
+		*/
+		// Fin Xpande
 		
 		//	Lines
 		MOrderLine[] lines = getLines(true, MOrderLine.COLUMNNAME_M_Product_ID);
@@ -2427,9 +2434,16 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 		}
 		// Fin Xpande.
 
+		// Xpande. Gabriel Vila. 02/04/2021.
+		// Por ahora no considero contabilización en ordenes de venta y compra.
+		// Comento código
+
 		/* globalqss - 2317928 - Reactivating/Voiding order must reset posted */
+		/*
 		MFactAcct.deleteEx(MOrder.Table_ID, getC_Order_ID(), get_TrxName());
 		setPosted(false);
+		*/
+		// Fin Xpande.
 		
 		// After reActivate
 		m_processMsg = ModelValidationEngine.get().fireDocValidate(this,ModelValidator.TIMING_AFTER_REACTIVATE);
