@@ -1905,7 +1905,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		BigDecimal invAmt = getGrandTotal(true);
 		if (MClient.get(getCtx()).getC_Currency_ID() > 0){
 			invAmt = MConversionRate.convertBase(getCtx(), getGrandTotal(true),	//	CM adjusted
-					getC_Currency_ID(), getDateAcct(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
+					getC_Currency_ID(), getDateInvoiced(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
 		}
 
 		// Fin Xpande.
@@ -1916,6 +1916,14 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 				+ " to base C_Currency_ID=" + MClient.get(Env.getCtx()).getC_Currency_ID();
 			return DocAction.STATUS_Invalid;
 		}
+
+		// Xpande. Gabriel Vila. 11/04/2021.
+		// Comento y sustituyo código que actualiza TotalOpenBalance y Credito en uso.
+		// Actualmente es muy confuso el concepto con el cual se usa el valor TotalOpenBalance.
+		// Ademas el mismo se usa para la verificación de crédito.
+		// Se actualiza y maneja solamente el valor de credito en uso, solo para comprobantes de venta.
+
+		/*
 		//	Total Balance
 		BigDecimal newBalance = bp.getTotalOpenBalance(false);
 		if (newBalance == null)
@@ -1957,6 +1965,33 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			m_processMsg = "Could not update Business Partner";
 			return DocAction.STATUS_Invalid;
 		}
+		*/
+
+		if (this.isSOTrx()){
+			if (bp.getFirstSale() == null){
+				bp.setFirstSale(getDateInvoiced());
+			}
+			BigDecimal newLifeAmt = bp.getActualLifeTimeValue();
+			if (newLifeAmt == null){
+				newLifeAmt = invAmt;
+			}
+			else{
+				newLifeAmt = newLifeAmt.add(invAmt);
+			}
+			BigDecimal newCreditAmt = bp.getSO_CreditUsed();
+			if (newCreditAmt == null){
+				newCreditAmt = invAmt;
+			}
+			else{
+				newCreditAmt = newCreditAmt.add(invAmt);
+			}
+			bp.setActualLifeTimeValue(newLifeAmt);
+			bp.setSO_CreditUsed(newCreditAmt);
+			bp.setSOCreditStatus();
+			bp.saveEx();
+		}
+		// Fin Xpande
+
 
 		//	User - Last Result/Contact
 		if (getAD_User_ID() != 0)
@@ -2477,6 +2512,37 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (m_processMsg != null)
 			return false;
 
+		// Actualizo información de crédito de socio de negocio
+		if (this.isSOTrx()){
+			MBPartner partner = (MBPartner) this.getC_BPartner();
+			BigDecimal invAmt = getGrandTotal(true);
+			if (MClient.get(getCtx()).getC_Currency_ID() > 0){
+				invAmt = MConversionRate.convertBase(getCtx(), getGrandTotal(true),	//	CM adjusted
+						getC_Currency_ID(), getDateInvoiced(), getC_ConversionType_ID(), getAD_Client_ID(), getAD_Org_ID());
+			}
+			if (invAmt == null)
+			{
+				m_processMsg = "Could not convert C_Currency_ID=" + getC_Currency_ID() + " to base C_Currency_ID=" + MClient.get(Env.getCtx()).getC_Currency_ID();
+				return false;
+			}
+			// Tengo que dar vuelta el monto, ya que estoy reactivando.
+			invAmt = invAmt.negate();
+			BigDecimal newLifeAmt = partner.getActualLifeTimeValue();
+			if (newLifeAmt == null)
+				newLifeAmt = invAmt;
+			else
+				newLifeAmt = newLifeAmt.add(invAmt);
+			BigDecimal newCreditAmt = partner.getSO_CreditUsed();
+			if (newCreditAmt == null)
+				newCreditAmt = invAmt;
+			else
+				newCreditAmt = newCreditAmt.add(invAmt);
+
+			partner.setActualLifeTimeValue(newLifeAmt);
+			partner.setSO_CreditUsed(newCreditAmt);
+			partner.setSOCreditStatus();
+			partner.saveEx();
+		}
 
 		// Xpande. Gabriel Vila. 03/08/2017. Issue #2.
 		// Me aseguro estados de documento al reactivar

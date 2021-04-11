@@ -834,6 +834,10 @@ public class MBPartner extends X_C_BPartner
 			|| Env.ZERO.compareTo(creditLimit) == 0)
 			return;
 
+		// Xpande. Gabriel Vila. 11/04/2021.
+		// Comento y sustituyo uso de TotalOpenBalance
+
+		/*
 		//	Above Credit Limit
 		if (creditLimit.compareTo(getTotalOpenBalance(!m_TotalOpenBalanceSet)) < 0)
 			setSOCreditStatus(SOCREDITSTATUS_CreditHold);
@@ -846,6 +850,21 @@ public class MBPartner extends X_C_BPartner
 			else	//	is OK
 				setSOCreditStatus (SOCREDITSTATUS_CreditOK);
 		}
+		*/
+
+		if (creditLimit.compareTo(this.getSO_CreditUsed()) < 0)
+			setSOCreditStatus(SOCREDITSTATUS_CreditHold);
+		else
+		{
+			//	Above Watch Limit
+			BigDecimal watchAmt = creditLimit.multiply(getCreditWatchRatio());
+			if (watchAmt.compareTo(this.getSO_CreditUsed()) < 0)
+				setSOCreditStatus(SOCREDITSTATUS_CreditWatch);
+			else	//	is OK
+				setSOCreditStatus (SOCREDITSTATUS_CreditOK);
+		}
+		// Fin Xpandw.
+
 	}	//	setSOCreditStatus
 	
 	
@@ -866,6 +885,10 @@ public class MBPartner extends X_C_BPartner
 			|| Env.ZERO.compareTo(creditLimit) == 0)
 			return getSOCreditStatus();
 
+		// Xpande. Gabriel Vila. 11/04/2021.
+		// Comento codigo y sustituyo. No uso el concepto de TotalOpenBalance.
+
+		/*
 		//	Above (reduced) Credit Limit
 		creditLimit = creditLimit.subtract(additionalAmt);
 		if (creditLimit.compareTo(getTotalOpenBalance(!m_TotalOpenBalanceSet)) < 0)
@@ -875,7 +898,18 @@ public class MBPartner extends X_C_BPartner
 		BigDecimal watchAmt = creditLimit.multiply(getCreditWatchRatio());
 		if (watchAmt.compareTo(getTotalOpenBalance()) < 0)
 			return SOCREDITSTATUS_CreditWatch;
-		
+		*/
+
+		creditLimit = creditLimit.subtract(additionalAmt);
+		if (creditLimit.compareTo(this.getSO_CreditUsed()) < 0)
+			return SOCREDITSTATUS_CreditHold;
+
+		//	Above Watch Limit
+		BigDecimal watchAmt = creditLimit.multiply(getCreditWatchRatio());
+		if (watchAmt.compareTo(this.getSO_CreditUsed()) < 0)
+			return SOCREDITSTATUS_CreditWatch;
+		// Fin Xpande
+
 		//	is OK
 		return SOCREDITSTATUS_CreditOK;
 	}	//	getSOCreditStatus
