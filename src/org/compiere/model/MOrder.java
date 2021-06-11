@@ -96,7 +96,7 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 				|| (docStatus.equalsIgnoreCase(STATUS_Invalid))
 				|| (docStatus.equalsIgnoreCase(STATUS_InProgress))){
 
-			options[newIndex++] = DocumentEngine.ACTION_Prepare;
+			//options[newIndex++] = DocumentEngine.ACTION_Prepare;
 			options[newIndex++] = DocumentEngine.ACTION_Complete;
 
 		}
@@ -2762,7 +2762,7 @@ public class MOrder extends X_C_Order implements DocAction, DocOptions {
 	 */
 	private void setCreditNotOK() {
 		try{
-			String action = " update c_order set iscreditapproved ='N', " +
+			String action = " update c_order set iscreditapproved ='N', ismanualapproved='N', " +
 							" creditmessage= 'Orden de Venta no supera verificación de Crédito' "+
 							" where c_order_id =" + this.get_ID();
 			DB.executeUpdateEx(action, null);
