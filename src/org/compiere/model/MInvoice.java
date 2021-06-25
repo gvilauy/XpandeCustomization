@@ -2512,6 +2512,8 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 		if (m_processMsg != null)
 			return false;
 
+		//
+
 		// Actualizo información de crédito de socio de negocio
 		if (this.isSOTrx()){
 			MBPartner partner = (MBPartner) this.getC_BPartner();
@@ -2788,6 +2790,7 @@ public class MInvoice extends X_C_Invoice implements DocAction, DocOptions {
 			inOut.setC_BPartner_Location_ID(this.getC_BPartner_Location_ID());
 			inOut.setMovementDate(this.getDateInvoiced());
 			inOut.setAD_Org_ID(this.getAD_Org_ID());
+			inOut.setC_Invoice_ID(this.get_ID());
 			inOut.saveEx();
 
 			int contador = 0;
