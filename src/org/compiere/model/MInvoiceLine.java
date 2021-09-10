@@ -549,8 +549,17 @@ public class MInvoiceLine extends X_C_InvoiceLine
 						if (getProduct().get_ValueAsInt("C_TaxCategory_ID_2") > 0){
 							taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
 						}
+						stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
 					}
-					stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
+					else{
+						// Para ventas, respeto el de la linea
+						if (this.getC_Tax_ID() > 0){
+							stdTax = new MTax (getCtx(), this.getC_Tax_ID(), get_TrxName());
+						}
+						else{
+							stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
+						}
+					}
 				}
 				// Xpande. Issue #5
 			}
