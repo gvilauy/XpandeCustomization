@@ -1341,7 +1341,8 @@ public abstract class Doc
 
 	// ID de grupo de socio de negocio para contabilización
 	public int cBPGroupID = -1;
-
+	// ID de Medio de pago
+	public int zMedioPagoID = -1;
 	// Fin Xpande
 
 	/**
@@ -1640,12 +1641,19 @@ public abstract class Doc
 		}
 		else if (AcctType == ACCTYPE_MP_Recibidos)
 		{
-			if (this.getC_Currency_ID() == as.getC_Currency_ID()){
-				sql = "SELECT MP_Recibidos_Acct FROM c_acctschema_default WHERE C_AcctSchema_ID=?";
+			if (this.zMedioPagoID > 0){
+				sql = "SELECT MP_Recibidos_Acct FROM Z_MedioPago_Acct WHERE z_mediopago_id =" + this.zMedioPagoID +
+						" AND c_currency_id =" + this.getC_Currency_ID() +
+						" AND C_AcctSchema_ID=? ";
 			}
 			else{
-				sql = "SELECT MP_Recibidos_Acct FROM z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
-						" AND C_AcctSchema_ID=?";
+				if (this.getC_Currency_ID() == as.getC_Currency_ID()){
+					sql = "SELECT MP_Recibidos_Acct FROM c_acctschema_default WHERE C_AcctSchema_ID=?";
+				}
+				else{
+					sql = "SELECT MP_Recibidos_Acct FROM z_acctconfig_default WHERE c_currency_id =" + this.getC_Currency_ID() +
+							" AND C_AcctSchema_ID=?";
+				}
 			}
 			para_1 = -1;
 		}
