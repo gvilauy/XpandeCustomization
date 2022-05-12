@@ -493,9 +493,18 @@ public class Doc_Invoice extends Doc
 								getC_Currency_ID(), dAmt, null);
 					}
 				}
-				fact.createLine (p_lines[i],
-						p_lines[i].getAccount(ProductCost.ACCTTYPE_P_Revenue, as),
-						getC_Currency_ID(), null, amt);
+				// Xpande. Gabriel Vila. 31/03/2022.
+				// Agrego validación de cuenta para producto.
+				MAccount acctProd = p_lines[i].getAccount(ProductCost.ACCTTYPE_P_Revenue, as);
+				if (acctProd == null){
+					p_Error = "No se obtuvo cuenta contable de venta para producto : " + p_lines[i].getProduct().getValue();
+					log.log(Level.SEVERE, p_Error);
+					fact = null;
+					facts.add(fact);
+					return facts;
+				}
+				// Fin Xpande
+				fact.createLine (p_lines[i], acctProd, getC_Currency_ID(), null, amt);
 				if (!p_lines[i].isItem())
 				{
 					grossAmt = grossAmt.subtract(amt);
