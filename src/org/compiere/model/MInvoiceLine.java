@@ -537,6 +537,14 @@ public class MInvoiceLine extends X_C_InvoiceLine
 									taxCategory = new MTaxCategory(getCtx(), getProduct().get_ValueAsInt("C_TaxCategory_ID_2"), get_TrxName());
 								}
 							}
+							else{
+								sql = " select c_taxcategory_id from z_productotaxorg where ad_orgtrx_id =" + this.getParent().getAD_Org_ID() +
+										" and m_product_id =" + this.getM_Product_ID();
+								int cTaxCategoryAuxID = DB.getSQLValueEx(null, sql);
+								if (cTaxCategoryAuxID > 0){
+									taxCategory = new MTaxCategory(getCtx(), cTaxCategoryAuxID, get_TrxName());
+								}
+							}
 							stdTax = new MTax (getCtx(), taxCategory.getDefaultTax().getC_Tax_ID(), get_TrxName());
 						}
 					}
@@ -579,9 +587,17 @@ public class MInvoiceLine extends X_C_InvoiceLine
 						+ taxThisAmt + " Standard Tax Amt: " + taxStdAmt + " Line Net Amt: " + bd);	
 			}
 		}
-		
-		if (bd.scale() > getPrecision())
-			bd = bd.setScale(getPrecision(), BigDecimal.ROUND_HALF_UP);
+
+		// Xpande. Gabriel Vila. 27/06/2023.
+		// Le puse este IF para que no haga redondeo a CERO en facturas de venta
+		if (!this.getParent().isSOTrx()){
+			if (bd.scale() > getPrecision()){
+				bd = bd.setScale(getPrecision(), BigDecimal.ROUND_HALF_UP);
+			}
+		}
+		else{
+			bd = bd.setScale(2, BigDecimal.ROUND_HALF_UP);
+		}
 		super.setLineNetAmt (bd);
 	}	//	setLineNetAmt
 	/**
